@@ -1,0 +1,14 @@
+{
+  "name": "fantrax-draft-assist",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync:nhl": "node scripts/sync-nhl.mjs",
+    "serve": "npx serve .",
+    "validate:fantasy": "node scripts/validate-fantasy.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -3,324 +3,293 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#06101b" />
-  <meta name="description" content="Fantrax Draft Assist — fantasy hockey roster, schedule, scoring and player intelligence." />
+  <meta name="theme-color" content="#06111c" />
+  <meta name="description" content="Fantrax Draft Assist — NHL data, exact custom fantasy scoring, player research and roster planning." />
   <title>FDA — Fantrax Draft Assist</title>
+  <link rel="preconnect" href="https://assets.nhle.com" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <button class="brand" data-page="home" aria-label="Open dashboard">
+      <button class="brand" data-route="dashboard" aria-label="Open FDA dashboard">
         <span class="brand-mark">FDA</span>
         <span class="brand-copy">
           <strong>Fantrax Draft Assist</strong>
-          <small>Draft smarter. Start more games.</small>
+          <small>Official NHL data · your scoring</small>
         </span>
       </button>
-      <button class="icon-button" id="openInfo" aria-label="About this preview">i</button>
+      <div class="top-actions">
+        <label class="season-control">
+          <span>Season</span>
+          <select id="seasonSelect" aria-label="Select NHL season">
+            <option value="20252026">2025–26</option>
+            <option value="20242025">2024–25</option>
+            <option value="20232024">2023–24</option>
+          </select>
+        </label>
+        <button class="icon-button" id="refreshData" aria-label="Refresh NHL data">↻</button>
+      </div>
     </header>
 
-    <main>
-      <section class="page active" id="page-home" aria-labelledby="homeTitle">
-        <div class="hero-panel panel">
+    <aside class="desktop-nav" aria-label="Primary navigation">
+      <button class="nav-link active" data-route="dashboard"><span>⌂</span><b>Dashboard</b></button>
+      <button class="nav-link" data-route="players"><span>◉</span><b>Players</b></button>
+      <button class="nav-link" data-route="lab"><span>⌁</span><b>Player Lab</b></button>
+      <button class="nav-link" data-route="draft"><span>▦</span><b>Draft Room</b></button>
+      <button class="nav-link" data-route="rules"><span>⚙</span><b>Scoring</b></button>
+      <button class="nav-link" data-route="data"><span>⇅</span><b>Data</b></button>
+    </aside>
+
+    <main class="main-content">
+      <section class="page active" id="page-dashboard">
+        <div class="hero panel">
           <div class="hero-copy">
-            <span class="status-pill"><i></i> Design build · V1</span>
-            <p class="eyebrow">YOUR HOCKEY COMMAND CENTRE</p>
-            <h1 id="homeTitle">Build the best roster for the games that actually count.</h1>
-            <p class="hero-text">One place for Fantrax scoring, cap planning, weekly starts, player trends and draft decisions.</p>
-          </div>
-          <div class="hero-orbit" aria-hidden="true">
-            <span class="orbit-ring ring-one"></span>
-            <span class="orbit-ring ring-two"></span>
-            <span class="puck">FDA</span>
-          </div>
-        </div>
-
-        <div class="notice">
-          <span>✓</span>
-          <p><strong>Scoring math is verified.</strong> Season FPTS below are real validation totals. Seven-day signals are visual placeholders until the NHL importer is connected.</p>
-        </div>
-
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">LEAGUE SNAPSHOT</p>
-            <h2>Your setup</h2>
-          </div>
-          <button class="text-button" data-page="settings">Edit rules</button>
-        </div>
-
-        <div class="setup-grid">
-          <article class="mini-card panel">
-            <span class="mini-icon">F</span>
-            <small>Active forwards</small>
-            <strong>6</strong>
-            <p>Each night</p>
-          </article>
-          <article class="mini-card panel">
-            <span class="mini-icon">D</span>
-            <small>Active defence</small>
-            <strong>4</strong>
-            <p>Each night</p>
-          </article>
-          <article class="mini-card panel">
-            <span class="mini-icon">G</span>
-            <small>Active goalies</small>
-            <strong>2</strong>
-            <p>Each night</p>
-          </article>
-          <article class="mini-card panel">
-            <span class="mini-icon">K</span>
-            <small>Keeper slots</small>
-            <strong>10</strong>
-            <p>Minors excluded</p>
-          </article>
-        </div>
-
-        <section class="panel roster-plan">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">DRAFT PLAN</p>
-              <h2>Roster construction</h2>
+            <div class="live-pill"><i id="liveDot"></i><span id="liveText">Connecting to NHL data…</span></div>
+            <p class="eyebrow">FANTRAX DRAFT ASSIST</p>
+            <h1>See the whole player market before you make the pick.</h1>
+            <p class="lead">League-wide NHL statistics, exact custom fantasy points, game-by-game audits, roster fit and a seven-day market view.</p>
+            <div class="hero-actions">
+              <button class="primary-button" data-route="players">Browse every player</button>
+              <button class="secondary-button" data-route="draft">Open draft room</button>
             </div>
-            <span class="subtle-badge">23 roster spots</span>
           </div>
-          <div class="allocation-row">
-            <div class="allocation-copy"><strong>12</strong><span>Forwards</span></div>
-            <div class="allocation-track"><span style="width:52%"></span></div>
+          <div class="hero-radar" aria-hidden="true">
+            <div class="radar-grid"></div>
+            <div class="radar-sweep"></div>
+            <div class="radar-center">FDA</div>
           </div>
-          <div class="allocation-row">
-            <div class="allocation-copy"><strong>8</strong><span>Defence</span></div>
-            <div class="allocation-track"><span style="width:35%"></span></div>
-          </div>
-          <div class="allocation-row">
-            <div class="allocation-copy"><strong>3</strong><span>Goalies</span></div>
-            <div class="allocation-track"><span style="width:13%"></span></div>
-          </div>
-          <button class="primary-button full" data-page="roster">Open roster builder</button>
-        </section>
-
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">VERIFIED PLAYERS</p>
-            <h2>Scoring check</h2>
-          </div>
-          <button class="text-button" data-page="players">View all</button>
         </div>
-        <div class="player-strip" id="verifiedStrip"></div>
 
-        <section class="panel edge-card">
-          <div class="edge-header">
-            <div>
-              <p class="eyebrow">NEXT DEVELOPMENT STEP</p>
-              <h2>Connect the live NHL importer</h2>
+        <div class="metric-grid" id="dashboardMetrics">
+          <article class="metric-card panel"><span>Players loaded</span><strong id="metricPlayers">—</strong><small>Skaters + goalies</small></article>
+          <article class="metric-card panel"><span>Exact fantasy leaders</span><strong id="metricExact">—</strong><small>Full event sync</small></article>
+          <article class="metric-card panel"><span>Scoring categories</span><strong>23</strong><small>Skaters + goalies</small></article>
+          <article class="metric-card panel"><span>Data freshness</span><strong id="metricFreshness">—</strong><small id="metricFreshnessSub">Waiting for source</small></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="panel leaderboard-panel">
+            <div class="section-heading">
+              <div><p class="eyebrow">LIVE PLAYER MARKET</p><h2>Top fantasy points per game</h2></div>
+              <button class="text-button" data-route="players">View full pool</button>
             </div>
-            <span class="progress-ring">2/4</span>
+            <div class="leaderboard" id="topLeaders">
+              <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+            </div>
+          </section>
+
+          <section class="panel setup-panel">
+            <div class="section-heading compact">
+              <div><p class="eyebrow">YOUR LEAGUE</p><h2>Nightly lineup</h2></div>
+              <span class="status-badge">Saved locally</span>
+            </div>
+            <div class="lineup-rules">
+              <div><span class="position-ball">F</span><strong>6</strong><small>Active forwards</small></div>
+              <div><span class="position-ball">D</span><strong>4</strong><small>Active defence</small></div>
+              <div><span class="position-ball goalie">G</span><strong>2</strong><small>Active goalies</small></div>
+              <div><span class="position-ball keeper">K</span><strong>10</strong><small>Keeper slots</small></div>
+            </div>
+            <div class="setup-note">
+              <strong>Roster plan</strong>
+              <span>12 forwards · 8 defence · 3 goalies</span>
+            </div>
+            <button class="primary-button full" data-route="draft">Build the roster</button>
+          </section>
+        </div>
+
+        <section class="panel pipeline-panel">
+          <div class="section-heading">
+            <div><p class="eyebrow">AUTOMATED DATA PIPELINE</p><h2>What is happening behind the page</h2></div>
+            <span class="source-chip">NHL official endpoints</span>
           </div>
-          <div class="pipeline">
-            <div class="pipeline-step done"><span>✓</span><div><strong>Fantrax formula</strong><small>Verified against real player totals</small></div></div>
-            <div class="pipeline-step done"><span>✓</span><div><strong>Mobile interface</strong><small>Ready for visual nit-picking</small></div></div>
-            <div class="pipeline-step next"><span>3</span><div><strong>NHL game collector</strong><small>Schedule, boxscores, penalties and stars</small></div></div>
-            <div class="pipeline-step"><span>4</span><div><strong>Prediction engine</strong><small>Seven-day rolling market signal</small></div></div>
+          <div class="pipeline-grid">
+            <article><span class="step done">1</span><div><strong>League-wide player import</strong><small>Official NHL skater and goalie reports.</small></div></article>
+            <article><span class="step done">2</span><div><strong>Fantasy calculation</strong><small>Your exact category weights are applied in-browser.</small></div></article>
+            <article><span class="step" id="specialStep">3</span><div><strong>Game-event enrichment</strong><small>First stars, minors, fights and hat tricks from completed games.</small></div></article>
+            <article><span class="step">4</span><div><strong>Seven-day prediction</strong><small>Recent form, schedule, opponents and role changes.</small></div></article>
           </div>
         </section>
       </section>
 
-      <section class="page" id="page-players" aria-labelledby="playersTitle">
-        <div class="page-title-row">
-          <div>
-            <p class="eyebrow">PLAYER DATABASE</p>
-            <h1 id="playersTitle">Find your next pick</h1>
+      <section class="page" id="page-players">
+        <div class="page-heading">
+          <div><p class="eyebrow">PLAYER DATABASE</p><h1>Every NHL player in one board</h1><p>Search, sort and filter the league using your fantasy score.</p></div>
+          <div class="heading-stat"><strong id="playerCountHeading">0</strong><span>players</span></div>
+        </div>
+
+        <section class="filter-panel panel">
+          <div class="search-box">
+            <span>⌕</span>
+            <input type="search" id="playerSearch" placeholder="Search player or team…" autocomplete="off" />
+            <button id="clearSearch" aria-label="Clear search">×</button>
           </div>
-          <span class="verified-chip">7 verified</span>
+          <div class="filters">
+            <select id="positionFilter" aria-label="Filter by position"><option value="ALL">All positions</option><option value="F">Forwards</option><option value="D">Defence</option><option value="G">Goalies</option></select>
+            <select id="teamFilter" aria-label="Filter by team"><option value="ALL">All teams</option></select>
+            <select id="sortFilter" aria-label="Sort players"><option value="fpg-desc">FP/G high to low</option><option value="fpts-desc">Fantasy points</option><option value="recent-desc">Recent FP/G</option><option value="games-desc">Games played</option><option value="name-asc">Player name</option></select>
+          </div>
+          <div class="data-mode-row">
+            <span id="dataModeLabel">Loading official NHL reports…</span>
+            <button class="text-button" data-route="data">How this is calculated</button>
+          </div>
+        </section>
+
+        <div class="desktop-player-head">
+          <span>Player</span><span>GP</span><span>FPTS</span><span>FP/G</span><span>7-day</span><span>Trend</span><span></span>
         </div>
-        <div class="search-box panel">
-          <span>⌕</span>
-          <input id="playerSearch" type="search" placeholder="Search player or team" autocomplete="off" />
-          <button id="clearSearch" aria-label="Clear search">×</button>
-        </div>
-        <div class="filter-row" aria-label="Player filters">
-          <button class="filter active" data-filter="ALL">All</button>
-          <button class="filter" data-filter="F">Forwards</button>
-          <button class="filter" data-filter="D">Defence</button>
-          <button class="filter" data-filter="G">Goalies</button>
-        </div>
-        <div class="sort-row">
-          <span>Sorted by verified FP/G</span>
-          <button class="sort-button" id="sortPlayers">High → Low</button>
-        </div>
-        <div class="players-list" id="playersList"></div>
+        <div class="player-list" id="playerList"></div>
+        <button class="secondary-button load-more" id="loadMore">Load more players</button>
       </section>
 
-      <section class="page" id="page-lab" aria-labelledby="labTitle">
-        <div class="page-title-row">
-          <div>
-            <p class="eyebrow">PLAYER LABORATORY</p>
-            <h1 id="labTitle">Scoring audit</h1>
-          </div>
-          <span class="verified-chip">Exact match</span>
+      <section class="page" id="page-lab">
+        <div class="page-heading lab-heading">
+          <div><p class="eyebrow">PLAYER LABORATORY</p><h1>Everything behind the number</h1><p>Raw NHL data, fantasy audit, recent games, deployment and schedule.</p></div>
+          <button class="secondary-button" data-route="players">Choose another player</button>
         </div>
 
-        <section class="player-hero panel">
-          <div class="player-hero-top">
-            <div class="large-avatar" id="labAvatar">SC</div>
-            <div class="player-heading">
-              <p class="eyebrow" id="labTeam">PIT · C</p>
-              <h2 id="labName">Sidney Crosby</h2>
-              <span id="labSeason">68 GP · 2025–26</span>
-            </div>
-            <button class="watch-button" id="labWatch">☆</button>
+        <section class="player-profile panel" id="playerProfile">
+          <div class="profile-art">
+            <img id="labHeadshot" alt="" />
+            <img id="labLogo" class="team-watermark" alt="" />
           </div>
-          <div class="hero-stat-grid">
-            <div><small>Fantrax points</small><strong id="labFpts">403.0</strong><span>Verified total</span></div>
-            <div><small>FP / game</small><strong id="labFpg">5.9</strong><span id="labFpgExact">5.926 exact</span></div>
-            <div><small>Seven-day signal</small><strong class="signal" id="labSignal">RISING</strong><span>Preview model</span></div>
+          <div class="profile-copy">
+            <p class="eyebrow" id="labMeta">—</p>
+            <h2 id="labName">Select a player</h2>
+            <div class="profile-tags"><span id="labPosition">—</span><span id="labGames">— GP</span><span id="labDataQuality">Data pending</span></div>
+          </div>
+          <button class="watch-button" id="watchPlayer" title="Add to watchlist">☆</button>
+          <div class="profile-score-grid">
+            <article><small>Fantasy points</small><strong id="labFpts">—</strong><span>Calculated</span></article>
+            <article><small>Fantasy FP/G</small><strong id="labFpg">—</strong><span id="labFpgExact">Exact value</span></article>
+            <article><small>Last 7 days</small><strong id="labRecent">—</strong><span id="labRecentGames">No games loaded</span></article>
+            <article><small>Market signal</small><strong id="labTrend" class="trend-flat">HOLD</strong><span id="labTrendReason">Insufficient sample</span></article>
           </div>
         </section>
 
-        <section class="panel trend-panel">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">SHORT-TERM MARKET</p>
-              <h2>Next seven days</h2>
-            </div>
-            <span class="confidence">82% confidence</span>
-          </div>
-          <div class="trend-summary">
-            <div><small>Projected FP/G</small><strong id="projectedFpg">6.3</strong></div>
-            <div><small>Games</small><strong>4</strong></div>
-            <div><small>Schedule</small><strong>Favourable</strong></div>
-          </div>
-          <svg class="trend-chart" viewBox="0 0 700 250" role="img" aria-label="Seven day player trend preview">
-            <defs>
-              <linearGradient id="trendFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#48e0a4" stop-opacity=".38"/><stop offset="1" stop-color="#48e0a4" stop-opacity="0"/></linearGradient>
-            </defs>
-            <g class="grid-lines"><line x1="28" y1="45" x2="675" y2="45"/><line x1="28" y1="105" x2="675" y2="105"/><line x1="28" y1="165" x2="675" y2="165"/><line x1="28" y1="220" x2="675" y2="220"/></g>
-            <path class="trend-area" d="M35,190 L135,158 L235,168 L335,122 L435,96 L535,70 L665,33 L665,220 L35,220 Z"/>
-            <path class="trend-line" d="M35,190 L135,158 L235,168 L335,122 L435,96 L535,70 L665,33"/>
-            <g class="trend-dots"><circle cx="35" cy="190" r="6"/><circle cx="135" cy="158" r="6"/><circle cx="235" cy="168" r="6"/><circle cx="335" cy="122" r="6"/><circle cx="435" cy="96" r="6"/><circle cx="535" cy="70" r="6"/><circle cx="665" cy="33" r="7"/></g>
-          </svg>
-          <p class="chart-caption">Visual model only for V1. The live version will rebuild this line every day from usage, recent scoring, opponents and schedule volume.</p>
-        </section>
+        <div class="lab-tabs" role="tablist">
+          <button class="lab-tab active" data-labtab="overview">Overview</button>
+          <button class="lab-tab" data-labtab="audit">Fantasy audit</button>
+          <button class="lab-tab" data-labtab="games">Game log</button>
+          <button class="lab-tab" data-labtab="schedule">Schedule</button>
+        </div>
 
-        <section class="panel audit-panel">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">CATEGORY BY CATEGORY</p>
-              <h2>Why the total matches</h2>
-            </div>
-            <span class="subtle-badge" id="auditBadge">403.0 total</span>
+        <div class="lab-panel active" id="lab-overview">
+          <div class="lab-grid">
+            <section class="panel trend-card">
+              <div class="section-heading compact"><div><p class="eyebrow">SEVEN-DAY MARKET</p><h2>Rolling fantasy form</h2></div><span class="status-badge" id="trendConfidence">Live results</span></div>
+              <div class="chart-wrap"><svg id="trendChart" viewBox="0 0 760 260" role="img" aria-label="Recent fantasy points per game chart"></svg></div>
+              <div class="chart-legend"><span><i class="dot recent"></i>Game fantasy points</span><span><i class="dot average"></i>Season FP/G</span></div>
+            </section>
+            <section class="panel stat-card">
+              <div class="section-heading compact"><div><p class="eyebrow">RAW NHL STATS</p><h2>Season totals</h2></div></div>
+              <div class="raw-stat-grid" id="rawStats"></div>
+            </section>
           </div>
-          <div class="audit-list" id="auditList"></div>
-          <div class="audit-total"><span>Calculated total</span><strong id="auditTotal">403.00</strong></div>
-        </section>
+          <section class="panel intelligence-card">
+            <div class="section-heading"><div><p class="eyebrow">PLAYER INTELLIGENCE</p><h2>What the numbers are saying</h2></div><span class="source-chip">Derived, not copied</span></div>
+            <div class="insight-grid" id="insightGrid"></div>
+          </section>
+        </div>
+
+        <div class="lab-panel" id="lab-audit">
+          <section class="panel audit-card">
+            <div class="section-heading"><div><p class="eyebrow">CATEGORY-BY-CATEGORY</p><h2>Fantasy scoring audit</h2></div><span class="status-badge" id="auditStatus">Calculated</span></div>
+            <div class="audit-columns"><div class="audit-list" id="auditList"></div><div class="audit-summary"><small>Calculated season total</small><strong id="auditTotal">—</strong><span id="auditEquation">No player selected</span></div></div>
+          </section>
+        </div>
+
+        <div class="lab-panel" id="lab-games">
+          <section class="panel game-log-card">
+            <div class="section-heading"><div><p class="eyebrow">RECENT RESULTS</p><h2>Game-by-game fantasy output</h2></div><span class="status-badge" id="gameLogStatus">Synced data required</span></div>
+            <div class="game-log" id="gameLog"></div>
+          </section>
+        </div>
+
+        <div class="lab-panel" id="lab-schedule">
+          <section class="panel schedule-card">
+            <div class="section-heading"><div><p class="eyebrow">NEXT SEVEN DAYS</p><h2>Upcoming opportunities</h2></div><button class="text-button" id="refreshSchedule">Refresh schedule</button></div>
+            <div class="schedule-list" id="scheduleList"></div>
+          </section>
+        </div>
       </section>
 
-      <section class="page" id="page-roster" aria-labelledby="rosterTitle">
-        <div class="page-title-row">
-          <div>
-            <p class="eyebrow">ROSTER BUILDER</p>
-            <h1 id="rosterTitle">Build around your keepers</h1>
-          </div>
-          <button class="text-button" id="resetRoster">Reset</button>
+      <section class="page" id="page-draft">
+        <div class="page-heading">
+          <div><p class="eyebrow">DRAFT ROOM</p><h1>Build around starts, value and roster fit</h1><p>Your roster is saved on this device while we shape the final league workflow.</p></div>
+          <button class="text-button danger" id="resetRoster">Reset roster</button>
         </div>
 
-        <section class="panel cap-panel">
-          <div class="cap-top">
-            <div><small>League salary cap</small><strong>Not configured</strong></div>
-            <button class="secondary-button" data-page="settings">Set cap</button>
-          </div>
-          <div class="cap-track"><span style="width:0%"></span></div>
-          <p>Salary calculations will activate after the static master salary list is connected.</p>
+        <section class="panel roster-summary">
+          <div class="summary-main"><small>Roster</small><strong><span id="rosterCount">0</span> / 23</strong></div>
+          <div><small>Forwards</small><strong id="rosterF">0 / 12</strong></div>
+          <div><small>Defence</small><strong id="rosterD">0 / 8</strong></div>
+          <div><small>Goalies</small><strong id="rosterG">0 / 3</strong></div>
+          <div><small>Projected FPTS</small><strong id="rosterFpts">0.0</strong></div>
         </section>
 
-        <div class="section-heading compact">
-          <div>
-            <p class="eyebrow">YOUR KNOWN KEEPERS</p>
-            <h2>Starting foundation</h2>
-          </div>
-          <span class="subtle-badge">3 of 10 shown</span>
-        </div>
-        <div class="keeper-grid">
-          <article class="keeper-card panel"><span class="keeper-pos">F</span><div><strong>Matvei Michkov</strong><small>Philadelphia · Active keeper</small></div><span class="keeper-tag">KEEP</span></article>
-          <article class="keeper-card panel"><span class="keeper-pos goalie">G</span><div><strong>Yaroslav Askarov</strong><small>San Jose · Goalie keeper</small></div><span class="keeper-tag">KEEP</span></article>
-          <article class="keeper-card panel"><span class="keeper-pos goalie">G</span><div><strong>Mackenzie Blackwood</strong><small>Colorado · Goalie keeper</small></div><span class="keeper-tag">KEEP</span></article>
-        </div>
-
-        <section class="panel slot-board">
-          <div class="section-heading compact">
-            <div>
-              <p class="eyebrow">DRAFT NEEDS</p>
-              <h2>Remaining roster map</h2>
+        <div class="draft-layout">
+          <section class="panel roster-board">
+            <div class="section-heading"><div><p class="eyebrow">PROJECTED ROSTER</p><h2>Your 23-player build</h2></div><span class="status-badge">Click a player to remove</span></div>
+            <div id="rosterSlots"></div>
+          </section>
+          <section class="panel assistant-card">
+            <div class="section-heading compact"><div><p class="eyebrow">ROSTER ASSISTANT</p><h2>Best next fit</h2></div></div>
+            <div id="assistantRecommendation" class="assistant-recommendation"><p>Add players to the roster and FDA will identify the biggest positional need.</p></div>
+            <div class="assistant-controls">
+              <label>Target position<select id="assistantPosition"><option value="AUTO">Automatic</option><option value="F">Forward</option><option value="D">Defence</option><option value="G">Goalie</option></select></label>
+              <label>Strategy<select id="assistantStrategy"><option value="FPG">Best FP/G</option><option value="RECENT">Recent form</option><option value="BALANCED">Balanced roster</option></select></label>
             </div>
-            <span class="subtle-badge" id="slotCount">20 open</span>
-          </div>
-          <div class="slot-group"><div class="slot-title"><span>Forwards</span><strong>11 open</strong></div><div class="slot-dots" data-count="12" data-filled="1"></div></div>
-          <div class="slot-group"><div class="slot-title"><span>Defence</span><strong>8 open</strong></div><div class="slot-dots" data-count="8" data-filled="0"></div></div>
-          <div class="slot-group"><div class="slot-title"><span>Goalies</span><strong>1 open</strong></div><div class="slot-dots" data-count="3" data-filled="2"></div></div>
-          <button class="primary-button full" data-page="players">Find players for open slots</button>
-        </section>
+            <button class="primary-button full" id="runAssistant">Find best available player</button>
+          </section>
+        </div>
 
-        <section class="panel strategy-card">
-          <p class="eyebrow">DRAFT ASSIST LOGIC</p>
-          <h2>What this page will eventually recommend</h2>
-          <div class="strategy-list">
-            <div><span>1</span><p><strong>Best value under your remaining cap</strong><small>Salary versus verified and projected FP/G</small></p></div>
-            <div><span>2</span><p><strong>Off-night roster fit</strong><small>Fill days when your expensive starters do not play</small></p></div>
-            <div><span>3</span><p><strong>Position scarcity</strong><small>Know when a defence or goalie run should change your pick</small></p></div>
-          </div>
+        <section class="panel draft-pool">
+          <div class="section-heading"><div><p class="eyebrow">AVAILABLE PLAYER POOL</p><h2>Draft directly from the live rankings</h2></div><button class="text-button" data-route="players">Open full database</button></div>
+          <div class="draft-list" id="draftList"></div>
         </section>
       </section>
 
-      <section class="page" id="page-settings" aria-labelledby="settingsTitle">
-        <div class="page-title-row">
-          <div>
-            <p class="eyebrow">LEAGUE ENGINE</p>
-            <h1 id="settingsTitle">Scoring settings</h1>
-          </div>
-          <span class="verified-chip">Fantrax preset</span>
+      <section class="page" id="page-rules">
+        <div class="page-heading"><div><p class="eyebrow">SCORING ENGINE</p><h1>Your Fantrax rules, calculated live</h1><p>Change a value and every player total is recalculated without rebuilding the database.</p></div><button class="secondary-button" id="restoreRules">Restore league rules</button></div>
+        <div class="rules-grid">
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">SKATERS</p><h2>Category values</h2></div></div><div class="rule-list" id="skaterRules"></div></section>
+          <section class="panel"><div class="section-heading compact"><div><p class="eyebrow">GOALIES</p><h2>Category values</h2></div></div><div class="rule-list" id="goalieRules"></div></section>
         </div>
-        <div class="notice settings-notice"><span>✓</span><p>These values reproduce the player totals we tested. Later, editing a value will recalculate every player instantly.</p></div>
+        <section class="panel formula-note"><strong>Important:</strong><p>The database stores raw hockey events. Fantasy points are derived from those events using these rules, so the league can change a category value without losing or rewriting NHL data.</p></section>
+      </section>
 
-        <section class="panel scoring-panel">
-          <div class="section-heading compact"><div><p class="eyebrow">SKATERS</p><h2>Counting categories</h2></div></div>
-          <div class="scoring-list" id="skaterScoring"></div>
-        </section>
-        <section class="panel scoring-panel">
-          <div class="section-heading compact"><div><p class="eyebrow">GOALIES</p><h2>Counting categories</h2></div></div>
-          <div class="scoring-list" id="goalieScoring"></div>
-        </section>
-        <section class="panel project-status">
-          <p class="eyebrow">DATA STATUS</p>
-          <h2>What is real in this build</h2>
-          <div class="status-grid">
-            <div><span class="status-dot live"></span><p><strong>Interface</strong><small>Interactive and deployable</small></p></div>
-            <div><span class="status-dot live"></span><p><strong>Scoring preset</strong><small>Copied from your league</small></p></div>
-            <div><span class="status-dot partial"></span><p><strong>Player data</strong><small>Verified sample only</small></p></div>
-            <div><span class="status-dot off"></span><p><strong>Automatic updates</strong><small>Not connected yet</small></p></div>
-          </div>
+      <section class="page" id="page-data">
+        <div class="page-heading"><div><p class="eyebrow">DATA CENTRE</p><h1>Exactly where every number comes from</h1><p>No copied Fantrax fantasy totals. FDA calculates its own result from raw hockey data.</p></div><button class="secondary-button" id="dataRefreshButton">Run live refresh</button></div>
+        <div class="data-grid">
+          <section class="panel source-card"><span class="source-number">01</span><div><p class="eyebrow">OFFICIAL NHL STATS API</p><h2>League-wide season reports</h2><p>Player identity, games, goals, assists, shots, hits, blocks, faceoffs, special teams and goalie results.</p><code>api.nhle.com/stats/rest</code></div><span class="source-state live">LIVE</span></section>
+          <section class="panel source-card"><span class="source-number">02</span><div><p class="eyebrow">OFFICIAL NHL GAMECENTER</p><h2>Game-event enrichment</h2><p>Completed games provide ordered Three Stars, penalties, fights, shootouts and the events needed for exact scoring audits.</p><code>api-web.nhle.com/v1/gamecenter</code></div><span class="source-state" id="gamecenterState">SYNC FILE</span></section>
+          <section class="panel source-card"><span class="source-number">03</span><div><p class="eyebrow">OFFICIAL NHL ASSETS</p><h2>Headshots and team logos</h2><p>Player images and team marks are loaded beside names using NHL player IDs and team abbreviations.</p><code>assets.nhle.com</code></div><span class="source-state live">LIVE</span></section>
+          <section class="panel source-card"><span class="source-number">04</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
+        </div>
+        <section class="panel sync-status-card">
+          <div class="section-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2>Import diagnostics</h2></div><span class="status-badge" id="diagnosticBadge">Waiting</span></div>
+          <div class="diagnostic-list" id="diagnosticList"></div>
         </section>
       </section>
     </main>
+
+    <nav class="mobile-nav" aria-label="Mobile navigation">
+      <button class="mobile-link active" data-route="dashboard"><span>⌂</span><small>Home</small></button>
+      <button class="mobile-link" data-route="players"><span>◉</span><small>Players</small></button>
+      <button class="mobile-link" data-route="lab"><span>⌁</span><small>Lab</small></button>
+      <button class="mobile-link" data-route="draft"><span>▦</span><small>Draft</small></button>
+      <button class="mobile-link" data-route="rules"><span>⚙</span><small>Rules</small></button>
+    </nav>
+
+    <dialog id="messageDialog">
+      <button class="dialog-close" id="closeDialog" aria-label="Close">×</button>
+      <p class="eyebrow" id="dialogEyebrow">FDA</p>
+      <h2 id="dialogTitle">Message</h2>
+      <div id="dialogBody"></div>
+    </dialog>
   </div>
 
-  <nav class="bottom-nav" aria-label="Primary navigation">
-    <button class="nav-item active" data-page="home"><span>⌂</span><small>Home</small></button>
-    <button class="nav-item" data-page="players"><span>⌕</span><small>Players</small></button>
-    <button class="nav-item" data-page="lab"><span>⌁</span><small>Lab</small></button>
-    <button class="nav-item" data-page="roster"><span>▦</span><small>Roster</small></button>
-    <button class="nav-item" data-page="settings"><span>⚙</span><small>Settings</small></button>
-  </nav>
-
-  <dialog id="infoDialog">
-    <button class="dialog-close" id="closeInfo" aria-label="Close">×</button>
-    <p class="eyebrow">FANTRAX DRAFT ASSIST</p>
-    <h2>Version-one design preview</h2>
-    <p>This build is intentionally focused on layout, navigation and the way information is organized. Verified Fantrax totals are included so we are designing around real output instead of fake numbers.</p>
-    <p>The next coding stage is the automatic NHL game importer and database. Once connected, the same screens can fill themselves without manual work.</p>
-  </dialog>
-
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js" type="module"></script>
 </body>
 </html>

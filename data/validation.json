@@ -1,0 +1,7 @@
+{
+  "checkedAt": null,
+  "season": "20252026",
+  "passed": false,
+  "checks": [],
+  "message": "Run the included GitHub Action to validate the full event sync against Crosby, Malkin and Cowan."
+}
