@@ -172,6 +172,7 @@
           <button class="lab-tab" data-labtab="audit">Fantasy audit</button>
           <button class="lab-tab" data-labtab="games">Game log</button>
           <button class="lab-tab" data-labtab="schedule">Schedule</button>
+          <button class="lab-tab" data-labtab="edge">NHL EDGE</button>
         </div>
 
         <div class="lab-panel active" id="lab-overview">
@@ -210,6 +211,22 @@
           <section class="panel schedule-card">
             <div class="section-heading"><div><p class="eyebrow">NEXT SEVEN DAYS</p><h2>Upcoming opportunities</h2></div><button class="text-button" id="refreshSchedule">Refresh schedule</button></div>
             <div class="schedule-list" id="scheduleList"></div>
+          </section>
+        </div>
+
+        <div class="lab-panel" id="lab-edge">
+          <section class="panel edge-card">
+            <div class="section-heading">
+              <div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Puck and player tracking</h2></div>
+              <button class="secondary-button" id="loadEdgeData">Load EDGE data</button>
+            </div>
+            <p class="edge-intro">Skating speed, skating distance, shot speed, shot location and zone time load only for the selected player so the site does not make hundreds of unnecessary EDGE requests.</p>
+            <div class="edge-status" id="edgeStatus">Select a player and load official NHL EDGE metrics.</div>
+            <div class="edge-metric-grid" id="edgeMetrics"></div>
+            <details class="edge-details" id="edgeDetails">
+              <summary>View raw NHL EDGE sections</summary>
+              <div id="edgeRaw"></div>
+            </details>
           </section>
         </div>
       </section>
@@ -265,7 +282,8 @@
           <section class="panel source-card"><span class="source-number">01</span><div><p class="eyebrow">OFFICIAL NHL STATS API</p><h2>League-wide season reports</h2><p>Player identity, games, goals, assists, shots, hits, blocks, faceoffs, special teams and goalie results.</p><code>api.nhle.com/stats/rest</code></div><span class="source-state live">LIVE</span></section>
           <section class="panel source-card"><span class="source-number">02</span><div><p class="eyebrow">OFFICIAL NHL GAMECENTER</p><h2>Game-event enrichment</h2><p>Completed games provide ordered Three Stars, penalties, fights, shootouts and the events needed for exact scoring audits.</p><code>api-web.nhle.com/v1/gamecenter</code></div><span class="source-state" id="gamecenterState">SYNC FILE</span></section>
           <section class="panel source-card"><span class="source-number">03</span><div><p class="eyebrow">OFFICIAL NHL ASSETS</p><h2>Headshots and team logos</h2><p>Player images and team marks are loaded beside names using NHL player IDs and team abbreviations.</p><code>assets.nhle.com</code></div><span class="source-state live">LIVE</span></section>
-          <section class="panel source-card"><span class="source-number">04</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
+          <section class="panel source-card"><span class="source-number">04</span><div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Advanced tracking on demand</h2><p>Speed, distance, shot profile and zone-time data load from NHL EDGE inside the Player Laboratory.</p><code>api-web.nhle.com/v1/edge</code></div><span class="source-state live">ON DEMAND</span></section>
+          <section class="panel source-card"><span class="source-number">05</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
         </div>
         <section class="panel sync-status-card">
           <div class="section-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2>Import diagnostics</h2></div><span class="status-badge" id="diagnosticBadge">Waiting</span></div>

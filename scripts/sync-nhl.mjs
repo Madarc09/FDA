@@ -103,7 +103,37 @@ async function playerIdentityMap() {
   else console.warn('Skater identity report failed:', skaterResult.reason?.message || skaterResult.reason);
   if (goalieResult.status === 'fulfilled') addRows(goalieResult.value,'goalie');
   else console.warn('Goalie identity report failed:', goalieResult.reason?.message || goalieResult.reason);
-  console.log(`${identities.size} player identities loaded.`);
+
+  console.log('Fetching all 32 official current rosters…');
+  const rosterResults = await pool(TEAMS, async team => ({ team, payload:await fetchJson(`${NHL_WEB}/roster/${team}/current`) }), 8);
+  let rosterCount = 0;
+  for (const result of rosterResults) {
+    if (result.status !== 'fulfilled') continue;
+    const { team, payload } = result.value;
+    const addRosterRows = (rows, fallbackPosition, playerType) => {
+      for (const row of rows || []) {
+        const id = num(row.id || row.playerId); if (!id) continue;
+        const first = local(row.firstName), last = local(row.lastName);
+        const existing = identities.get(id) || {};
+        identities.set(id, {
+          ...existing,
+          name:`${first} ${last}`.trim() || existing.name || `Player ${id}`,
+          team,
+          position:playerType === 'goalie' ? 'G' : (row.positionCode || row.position || fallbackPosition),
+          playerType,
+          currentRoster:true,
+          headshot:row.headshot || existing.headshot || null,
+          sweaterNumber:row.sweaterNumber ?? existing.sweaterNumber ?? null,
+          birthDate:row.birthDate || existing.birthDate || null
+        });
+        rosterCount++;
+      }
+    };
+    addRosterRows(payload.forwards,'F','skater');
+    addRosterRows(payload.defensemen || payload.defencemen,'D','skater');
+    addRosterRows(payload.goalies,'G','goalie');
+  }
+  console.log(`${identities.size} player identities loaded, including ${rosterCount} current-roster entries.`);
   return identities;
 }
 
@@ -314,6 +344,15 @@ async function processGame(game) {
 
 function aggregate(cache, identities = new Map()) {
   const byPlayer = new Map();
+  for (const [id, identity] of identities.entries()) {
+    byPlayer.set(num(id), {
+      id:num(id), name:identity.name || `Player ${id}`, team:identity.team || 'NHL',
+      position:identity.position || (identity.playerType === 'goalie' ? 'G' : 'F'),
+      playerType:identity.playerType || 'skater', currentRoster:Boolean(identity.currentRoster),
+      headshot:identity.headshot || null, sweaterNumber:identity.sweaterNumber ?? null,
+      birthDate:identity.birthDate || null, gamesPlayed:0, stats:blankStats(), games:[], _lastDate:''
+    });
+  }
   const games = Object.values(cache).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   for(const game of games){
     for(const raw of Object.values(game.players||{})){
@@ -333,12 +372,16 @@ function aggregate(cache, identities = new Map()) {
     if(identity?.team)player.team=identity.team;
     if(identity?.position)player.position=identity.position;
     if(identity?.playerType)player.playerType=identity.playerType;
+    if(identity?.headshot)player.headshot=identity.headshot;
+    if(identity?.currentRoster)player.currentRoster=true;
+    if(identity?.sweaterNumber != null)player.sweaterNumber=identity.sweaterNumber;
+    if(identity?.birthDate)player.birthDate=identity.birthDate;
     const fantasyPoints=Number(scoreStats(player.stats,player.playerType).toFixed(2));
     const fpg=player.gamesPlayed?Number((fantasyPoints/player.gamesPlayed).toFixed(4)):0;
-    player.fantasyPoints=fantasyPoints;player.fpg=fpg;player.dataQuality='exact';
+    player.fantasyPoints=fantasyPoints;player.fpg=fpg;player.dataQuality=player.gamesPlayed>0?'exact':'official-roster';
     player.games=player.games.slice(-15);
     return player;
-  }).filter(player=>player.gamesPlayed>0).sort((a,b)=>b.fpg-a.fpg||b.fantasyPoints-a.fantasyPoints);
+  }).filter(player=>player.gamesPlayed>0||player.currentRoster).sort((a,b)=>b.fpg-a.fpg||b.fantasyPoints-a.fantasyPoints||a.name.localeCompare(b.name));
   return players;
 }
 

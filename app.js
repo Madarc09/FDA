@@ -40,12 +40,6 @@ const DEFAULT_RULES = {
   }
 };
 
-const OFFLINE_VALIDATION = [
-  { id: 8471675, name: 'Sidney Crosby', team: 'PIT', position: 'C', playerType: 'skater', gamesPlayed: 68, dataQuality: 'verified-sample', stats: { goals:29, assists:45, shotsOnGoal:160, hits:60, blocks:30, faceoffsWon:773, faceoffsLost:628, powerPlayPoints:23, gameWinningGoals:4, minorPenalties:17, firstStars:7, shootoutGoals:2 } },
-  { id: 8471215, name: 'Evgeni Malkin', team: 'PIT', position: 'C', playerType: 'skater', gamesPlayed: 56, dataQuality: 'verified-sample', stats: { goals:19, assists:42, shotsOnGoal:148, hits:24, blocks:17, faceoffsWon:109, faceoffsLost:136, powerPlayPoints:22, gameWinningGoals:3, minorPenalties:23, firstStars:6, shootoutGoals:1, hatTricks:1 } },
-  { id: 8484153, name: 'Easton Cowan', team: 'TOR', position: 'RW', playerType: 'skater', gamesPlayed: 66, dataQuality: 'verified-sample', stats: { goals:11, assists:18, shotsOnGoal:92, hits:72, blocks:32, faceoffsWon:2, faceoffsLost:4, powerPlayPoints:6, gameWinningGoals:1, minorPenalties:15, fights:1, firstStars:1 } }
-];
-
 const state = {
   season: '20252026',
   players: [],
@@ -58,6 +52,8 @@ const state = {
   watchlist: new Set(JSON.parse(storage.getItem('fda-watchlist') || '[]')),
   visibleCount: 60,
   diagnostics: [],
+  edgeCache: new Map(),
+  edgeLoading: new Set(),
   route: 'dashboard'
 };
 
@@ -214,8 +210,121 @@ async function loadSyncedData() {
   }
 }
 
+
+
+const NHL_TEAMS = ['ANA','BOS','BUF','CAR','CBJ','CGY','CHI','COL','DAL','DET','EDM','FLA','LAK','MIN','MTL','NJD','NSH','NYI','NYR','OTT','PHI','PIT','SEA','SJS','STL','TBL','TOR','UTA','VAN','VGK','WPG','WSH'];
+
+function rosterName(row) {
+  const first = row?.firstName?.default || row?.firstName?.en || '';
+  const last = row?.lastName?.default || row?.lastName?.en || '';
+  return `${first} ${last}`.trim() || row?.fullName?.default || row?.fullName || `Player ${row?.id || ''}`;
+}
+
+function normalizeRosterPosition(position, type) {
+  if (type === 'goalie' || position === 'G') return 'G';
+  if (['D','LD','RD'].includes(String(position || '').toUpperCase())) return 'D';
+  return String(position || 'F').toUpperCase();
+}
+
+function blankPlayerStats() {
+  return { goals:0, assists:0, shotsOnGoal:0, hits:0, blocks:0, faceoffsWon:0, faceoffsLost:0, powerPlayPoints:0, shortHandedPoints:0, gameWinningGoals:0, minorPenalties:0, fights:0, shootoutGoals:0, hatTricks:0, gordieHoweHatTricks:0, firstStars:0, saves:0, goalsAgainst:0, wins:0, shutouts:0 };
+}
+
+function mergeDirectoryPlayers(rosterPlayers, seasonPlayers) {
+  const byId = new Map();
+  const merge = player => {
+    const id = number(player.id || player.playerId);
+    if (!id) return;
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, { ...player, id, stats:{ ...blankPlayerStats(), ...(player.stats || {}) } });
+      return;
+    }
+    const nextHasStats = number(player.gamesPlayed) > 0;
+    byId.set(id, {
+      ...existing,
+      ...player,
+      id,
+      name: player.name && !String(player.name).startsWith('Player ') ? player.name : existing.name,
+      team: nextHasStats ? (player.team || existing.team) : (existing.team || player.team),
+      position: existing.position && existing.position !== 'F' ? existing.position : player.position,
+      playerType: existing.playerType === 'goalie' || player.playerType === 'goalie' ? 'goalie' : 'skater',
+      headshot: existing.headshot || player.headshot || null,
+      currentRoster: Boolean(existing.currentRoster || player.currentRoster),
+      gamesPlayed: Math.max(number(existing.gamesPlayed), number(player.gamesPlayed)),
+      stats: nextHasStats ? { ...blankPlayerStats(), ...(existing.stats || {}), ...(player.stats || {}) } : { ...blankPlayerStats(), ...(player.stats || {}), ...(existing.stats || {}) },
+      dataQuality: nextHasStats ? (player.dataQuality || existing.dataQuality) : existing.dataQuality
+    });
+  };
+  rosterPlayers.forEach(merge);
+  seasonPlayers.forEach(merge);
+  return [...byId.values()].map(calculatePlayer);
+}
+
+async function loadServerPlayerDirectory() {
+  try {
+    const response = await fetch(`/api/players?season=${encodeURIComponent(state.season)}&t=${Date.now()}`, { cache:'no-store' });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const payload = await response.json();
+    if (!Array.isArray(payload.players) || payload.players.length < 300) throw new Error(`Only ${payload.players?.length || 0} player records returned.`);
+    state.players = payload.players.map(normalizeSyncedPlayer);
+    state.metadata = { ...(payload.metadata || {}), generatedAt:payload.generatedAt || payload.metadata?.generatedAt || new Date().toISOString() };
+    state.dataMode = 'official-directory';
+    addDiagnostic('Complete NHL player directory', `${state.players.length} current-roster and season player records loaded through the Vercel server route.`, 'ok', `${state.players.length} players`);
+    if (payload.metadata?.failedRosterTeams?.length) addDiagnostic('Roster endpoint warnings', `${payload.metadata.failedRosterTeams.length} team roster requests failed and will retry on refresh.`, 'warn', 'Partial roster');
+    if (payload.metadata?.reportErrors?.length) addDiagnostic('Season report warnings', payload.metadata.reportErrors.join(' | '), 'warn', 'Partial stats');
+    return true;
+  } catch (error) {
+    addDiagnostic('Vercel player-directory route', `Server route unavailable in this preview: ${error.message}`, 'warn', 'Direct NHL fallback');
+    return false;
+  }
+}
+
+async function loadBrowserRosterDirectory() {
+  const results = await Promise.allSettled(NHL_TEAMS.map(async team => ({ team, payload:await fetchJson(`${NHL_WEB}/roster/${team}/current`, { timeout:12000, retries:1 }) })));
+  const rosterPlayers = [];
+  let successfulTeams = 0;
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    successfulTeams++;
+    const { team, payload } = result.value;
+    const addRows = (rows, fallbackPosition, playerType) => {
+      for (const row of rows || []) {
+        const id = number(row.id || row.playerId);
+        if (!id) continue;
+        rosterPlayers.push({
+          id,
+          name:rosterName(row),
+          team,
+          position:normalizeRosterPosition(row.positionCode || row.position || fallbackPosition, playerType),
+          playerType,
+          gamesPlayed:0,
+          stats:blankPlayerStats(),
+          currentRoster:true,
+          headshot:row.headshot || null,
+          sweaterNumber:row.sweaterNumber ?? null,
+          shootsCatches:row.shootsCatches || null,
+          birthDate:row.birthDate || null,
+          heightInInches:number(row.heightInInches) || null,
+          weightInPounds:number(row.weightInPounds) || null,
+          dataQuality:'official-roster'
+        });
+      }
+    };
+    addRows(payload.forwards,'F','skater');
+    addRows(payload.defensemen || payload.defencemen,'D','skater');
+    addRows(payload.goalies,'G','goalie');
+  }
+  if (rosterPlayers.length < 300) throw new Error(`Only ${rosterPlayers.length} roster records from ${successfulTeams}/32 teams.`);
+  addDiagnostic('Official NHL team rosters', `${rosterPlayers.length} current roster players received from ${successfulTeams}/32 teams.`, successfulTeams === 32 ? 'ok' : 'warn', `${rosterPlayers.length} players`);
+  return rosterPlayers;
+}
+
 async function loadLiveReports() {
   state.dataMode = 'live';
+  let rosterPlayers = [];
+  try { rosterPlayers = await loadBrowserRosterDirectory(); }
+  catch (error) { addDiagnostic('NHL roster directory failed', error.message, 'warn', 'Season players only'); }
   const reports = ['summary','realtime','faceoffpercentages','powerplay','penaltykill','penalties','shootout'];
   const reportResults = await Promise.allSettled(reports.map(report => fetchJson(currentQuery(report)).then(data => ({ report, data }))));
   const maps = {};
@@ -228,9 +337,9 @@ async function loadLiveReports() {
       addDiagnostic(`NHL skater report: ${report}`, `${data.data?.length || 0} records received.`, 'ok', 'Live');
     } else addDiagnostic('NHL skater report failed', result.reason?.message || 'Unknown request failure', 'warn', 'Partial');
   }
-  if (!maps.summary?.size) throw new Error('The NHL skater summary report did not return player records.');
+  if (!maps.summary?.size && !rosterPlayers.length) throw new Error('Neither the NHL roster directory nor skater season report returned player records.');
 
-  const skaters = [...maps.summary.values()].map(summary => {
+  const skaters = [...(maps.summary?.values() || [])].map(summary => {
     const id = number(summary.playerId);
     const realtime = maps.realtime?.get(id) || {};
     const faceoff = maps.faceoffpercentages?.get(id) || {};
@@ -271,19 +380,10 @@ async function loadLiveReports() {
     addDiagnostic('NHL goalie summary', `${goalies.length} goalie records received.`, 'ok', 'Live');
   } catch (error) { addDiagnostic('NHL goalie report failed', error.message, 'warn', 'Skaters only'); }
 
-  state.players = [...skaters, ...goalies].filter(player => player.id && player.gamesPlayed > 0);
-  state.metadata = { generatedAt: new Date().toISOString(), source: 'live NHL Stats REST reports', reportCount: successful };
+  state.players = mergeDirectoryPlayers(rosterPlayers, [...skaters, ...goalies]).filter(player => player.id);
+  if (state.players.length < 300) throw new Error(`Only ${state.players.length} NHL players were assembled; refusing to show a sample as the full pool.`);
+  state.metadata = { generatedAt: new Date().toISOString(), source: 'Official NHL current rosters plus Stats REST reports', reportCount: successful, currentRosterCount:rosterPlayers.length };
   addDiagnostic('Fantasy calculation', 'Raw report categories were joined by NHL player ID and your scoring formula was applied.', 'ok', 'Derived');
-}
-
-function applyVerifiedSamples() {
-  const byId = new Map(state.players.map((player,index) => [player.id, { player, index }]));
-  for (const sample of OFFLINE_VALIDATION) {
-    const existing = byId.get(sample.id);
-    if (existing && state.season === '20252026' && state.dataMode !== 'exact') {
-      state.players[existing.index] = calculatePlayer({ ...existing.player, ...sample, name: existing.player.name || sample.name, team: existing.player.team || sample.team, position: existing.player.position || sample.position, stats: { ...sample.stats }, dataQuality: 'verified-sample' });
-    } else if (!existing) state.players.push(calculatePlayer(sample));
-  }
 }
 
 async function refreshAllData({ forceLive = false } = {}) {
@@ -293,15 +393,18 @@ async function refreshAllData({ forceLive = false } = {}) {
   renderLoadingPlayers();
   try {
     const exact = forceLive ? false : await loadSyncedData();
-    if (!exact) await loadLiveReports();
-    applyVerifiedSamples();
+    if (!exact) {
+      const directoryLoaded = await loadServerPlayerDirectory();
+      if (!directoryLoaded) await loadLiveReports();
+    }
     recalculateAll();
-    setLiveStatus(state.dataMode === 'synced-unvalidated' ? 'error' : 'live', state.dataMode === 'exact' ? 'Exact game-event database loaded · 3 validation matches' : state.dataMode === 'synced-unvalidated' ? 'Game-event sync loaded · Fantrax validation needs review' : 'Official NHL reports loaded · event sync pending');
+    setLiveStatus(state.dataMode === 'synced-unvalidated' ? 'error' : 'live', state.dataMode === 'exact' ? 'Exact game-event database loaded · Fantrax validation passed' : state.dataMode === 'synced-unvalidated' ? 'Game-event sync loaded · Fantrax validation needs review' : `Official NHL player directory loaded · ${state.players.length} players`);
   } catch (error) {
-    state.dataMode = 'offline';
-    state.players = OFFLINE_VALIDATION.map(calculatePlayer);
-    addDiagnostic('Live NHL import unavailable', error.message, 'error', 'Offline samples');
-    setLiveStatus('error', 'NHL request unavailable · showing verified offline samples');
+    state.dataMode = 'error';
+    state.players = [];
+    state.metadata = { generatedAt:new Date().toISOString(), source:'No complete source loaded' };
+    addDiagnostic('Complete NHL import unavailable', error.message, 'error', 'No sample substitution');
+    setLiveStatus('error', 'Complete NHL directory unavailable · refresh after deployment');
     recalculateAll();
   }
 }
@@ -329,7 +432,7 @@ function renderDashboard() {
   $('#metricExact').textContent = state.players.filter(p => p.dataQuality === 'exact').length.toLocaleString('en-US');
   const generated = state.metadata?.generatedAt ? new Date(state.metadata.generatedAt) : null;
   $('#metricFreshness').textContent = generated && !Number.isNaN(generated.getTime()) ? generated.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'Live';
-  $('#metricFreshnessSub').textContent = state.dataMode === 'exact' ? 'Validated event sync' : state.dataMode === 'synced-unvalidated' ? 'Event sync · audit warning' : state.dataMode === 'live' ? 'Official API session' : 'Offline fallback';
+  $('#metricFreshnessSub').textContent = state.dataMode === 'exact' ? 'Validated event sync' : state.dataMode === 'synced-unvalidated' ? 'Event sync · audit warning' : state.dataMode === 'live' || state.dataMode === 'official-directory' ? 'Official NHL directory' : 'Source unavailable';
   $('#specialStep').className = state.dataMode === 'exact' ? 'step done' : 'step';
   const leaders = state.players.filter(p => p.gamesPlayed >= 10).slice(0, 8);
   $('#topLeaders').innerHTML = leaders.map((player,index) => `
@@ -393,7 +496,7 @@ function renderPlayers() {
       <img class="headshot" src="${headshotUrl(player)}" alt="" onerror="this.style.display='none'" />
       <div class="player-main">
         <div class="player-name-line"><strong>${safeText(player.name)}</strong><img class="team-logo" src="${teamLogoUrl(player.team)}" alt="${safeText(player.team)}" onerror="this.remove()" /></div>
-        <small>${safeText(player.team)} · ${safeText(player.position)} · ${player.dataQuality === 'exact' ? 'Exact game sync' : player.dataQuality === 'event-sync-unvalidated' ? 'Game sync · validation warning' : 'Official NHL season reports'}</small>
+        <small>${safeText(player.team)} · ${safeText(player.position)} · ${player.dataQuality === 'exact' ? 'Exact game sync' : player.dataQuality === 'official-roster' ? 'Official NHL current roster' : player.dataQuality === 'event-sync-unvalidated' ? 'Game sync · validation warning' : 'Official NHL season reports'}</small>
         <div class="player-mobile-stats"><span><b>${player.gamesPlayed}</b> GP</span><span><b>${fmt(player.fantasyPoints,1)}</b> FPTS</span><span><b>${fmt(player.fpg,2)}</b> FP/G</span></div>
       </div>
       <div class="player-score"><strong>${fmt(player.fpg,2)}</strong><small>${recent} recent</small><em class="${trendClass}">${trendLabel}</em></div>
@@ -413,15 +516,15 @@ function renderLab() {
   $('#labLogo').src = teamLogoUrl(player.team);
   $('#labMeta').textContent = `${player.team} · ${state.season.slice(0,4)}–${state.season.slice(6)}`;
   $('#labName').textContent = player.name; $('#labPosition').textContent = player.position; $('#labGames').textContent = `${player.gamesPlayed} GP`;
-  $('#labDataQuality').textContent = player.dataQuality === 'exact' ? 'Exact game-event sync · Fantrax validation passed' : player.dataQuality === 'event-sync-unvalidated' ? 'Game-event sync loaded · validation mismatch under audit' : player.dataQuality === 'verified-sample' ? 'Verified sample' : 'Live NHL reports · special events pending';
-  $('#labFpts').textContent = fmt(player.fantasyPoints,2); $('#labFpg').textContent = fmt(player.fpg,2); $('#labFpgExact').textContent = `${player.fpg.toFixed(4)} exact`;
+  $('#labDataQuality').textContent = player.dataQuality === 'exact' ? 'Exact game-event sync · Fantrax validation passed' : player.dataQuality === 'event-sync-unvalidated' ? 'Game-event sync loaded · validation mismatch under audit' : player.dataQuality === 'official-roster' ? 'Official NHL roster · no season games yet' : 'Official NHL season reports · special events pending';
+  $('#labFpts').textContent = fmt(player.fantasyPoints,2); $('#labFpg').textContent = fmt(player.fpg,2); $('#labFpgExact').textContent = player.dataQuality === 'exact' ? `${player.fpg.toFixed(4)} exact` : player.gamesPlayed ? `${player.fpg.toFixed(4)} before event sync` : 'No NHL games';
   $('#labRecent').textContent = player.recentGames ? fmt(player.recentFpg,2) : '—'; $('#labRecentGames').textContent = player.recentGames ? `${player.recentGames} games in 7 days` : 'Game-event sync required';
   const trendLabel = player.trend === 'up' ? 'RISING' : player.trend === 'down' ? 'FALLING' : 'HOLD';
   const trendClass = player.trend === 'up' ? 'trend-up' : player.trend === 'down' ? 'trend-down' : 'trend-flat';
   $('#labTrend').textContent = trendLabel; $('#labTrend').className = trendClass;
   $('#labTrendReason').textContent = player.recentGames < 2 ? 'Waiting for recent game sample' : `${player.trendDelta >= 0 ? '+' : ''}${fmt(player.trendDelta,2)} vs season FP/G`;
   $('#watchPlayer').classList.toggle('active',state.watchlist.has(player.id));
-  renderRawStats(player); renderAudit(player); renderTrendChart(player); renderInsights(player); renderGameLog(player); renderSchedulePlaceholder(player);
+  renderRawStats(player); renderAudit(player); renderTrendChart(player); renderInsights(player); renderGameLog(player); renderSchedulePlaceholder(player); renderEdgePanel(player);
 }
 
 function rawStatEntries(player) {
@@ -475,6 +578,114 @@ function renderInsights(player) {
   const special = player.playerType==='goalie' ? `${number(s.wins)} wins and ${number(s.shutouts)} shutouts are included in the current score.` : `${number(s.powerPlayPoints)} power-play points, ${number(s.gameWinningGoals)} game-winners and ${number(s.firstStars)} first-star awards.`;
   const quality = player.dataQuality==='exact' ? 'Every fantasy category is backed by the automated game-event file.' : 'The league-wide NHL reports are live. First stars and event-only categories become exact after the scheduled Gamecenter sync.';
   $('#insightGrid').innerHTML=[['Volume profile',primary],['Bonus production',special],['Data confidence',quality]].map(([title,text])=>`<div class="insight"><strong>${title}</strong><span>${text}</span></div>`).join('');
+}
+
+
+
+function readableMetricKey(value) {
+  return String(value || '')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[._-]+/g, ' ')
+    .replace(/\b\w/g, char => char.toUpperCase())
+    .trim();
+}
+
+function edgeMetricValue(value, key = '') {
+  const n = number(value);
+  if (/percent|pct|percentage/i.test(key)) return `${n.toFixed(1)}%`;
+  if (/speed|mph/i.test(key)) return `${n.toFixed(2)} mph`;
+  if (/distance|miles/i.test(key)) return `${n.toFixed(2)} mi`;
+  return Math.abs(n) >= 100 ? n.toLocaleString('en-US',{maximumFractionDigits:1}) : n.toLocaleString('en-US',{maximumFractionDigits:2});
+}
+
+function renderEdgePanel(player) {
+  const cached = state.edgeCache.get(`${state.season}:${player.id}`);
+  const status = $('#edgeStatus');
+  const metrics = $('#edgeMetrics');
+  const raw = $('#edgeRaw');
+  if (!cached) {
+    status.className = 'edge-status';
+    status.textContent = player.gamesPlayed ? `NHL EDGE is ready for ${player.name}. Data loads on demand.` : `${player.name} has no NHL game sample for this season, so EDGE may not have tracking data.`;
+    metrics.innerHTML = '';
+    raw.innerHTML = '';
+    $('#edgeDetails').open = false;
+    return;
+  }
+  if (cached.error) {
+    status.className = 'edge-status error';
+    status.textContent = cached.error;
+    metrics.innerHTML = '';
+    raw.innerHTML = '';
+    return;
+  }
+  status.className = 'edge-status live';
+  status.textContent = `${cached.metrics?.length || 0} advanced metrics loaded from official NHL EDGE for ${player.name}.`;
+  metrics.innerHTML = (cached.metrics || []).slice(0,24).map(metric => `<article class="edge-metric"><small>${safeText(metric.section || 'NHL EDGE')}</small><strong>${safeText(edgeMetricValue(metric.value,metric.key))}</strong><span title="${safeText(metric.key)}">${safeText(readableMetricKey(metric.key))}</span></article>`).join('') || '<div class="empty-state">The endpoint returned data, but no numeric metrics could be summarized automatically. Open the raw sections below.</div>';
+  raw.innerHTML = (cached.sections || []).map(section => `<div class="edge-raw-section"><strong>${safeText(section.label || section.key)}</strong><pre>${safeText(JSON.stringify(section.data,null,2))}</pre></div>`).join('');
+}
+
+function flattenEdgeNumbers(value, prefix = '', output = [], depth = 0) {
+  if (depth > 5 || output.length >= 80 || value == null) return output;
+  if ((typeof value === 'number' && Number.isFinite(value)) || (typeof value === 'string' && value.trim() && Number.isFinite(Number(value)))) {
+    output.push({ key:prefix, value:Number(value) });
+    return output;
+  }
+  if (Array.isArray(value)) {
+    value.slice(0,12).forEach((item,index)=>flattenEdgeNumbers(item,`${prefix}${prefix?'.':''}${index}`,output,depth+1));
+    return output;
+  }
+  if (typeof value === 'object') for (const [key,child] of Object.entries(value)) {
+    flattenEdgeNumbers(child,`${prefix}${prefix?'.':''}${key}`,output,depth+1);
+    if (output.length >= 80) break;
+  }
+  return output;
+}
+
+function summarizeEdgeSections(sections) {
+  const preferred=/(max|avg|average|percent|pct|bursts|distance|miles|speed|offensive|neutral|defensive|danger|shots|goals|save)/i;
+  const metrics=[]; const seen=new Set();
+  for(const section of sections) for(const metric of flattenEdgeNumbers(section.data)) {
+    if(!metric.key||!preferred.test(metric.key)) continue;
+    const key=metric.key.split('.').filter(part=>!/^\d+$/.test(part)).slice(-3).join(' · ');
+    const signature=`${section.key}:${key}`; if(seen.has(signature))continue; seen.add(signature);
+    metrics.push({section:section.label,key,value:metric.value}); if(metrics.length>=30)return metrics;
+  }
+  return metrics;
+}
+
+async function loadEdgeDataForPlayer(player) {
+  const cacheKey=`${state.season}:${player.id}`;
+  if(state.edgeLoading.has(cacheKey))return;
+  state.edgeLoading.add(cacheKey);
+  $('#edgeStatus').className='edge-status'; $('#edgeStatus').textContent=`Loading NHL EDGE for ${player.name}…`; $('#edgeMetrics').innerHTML='<div class="empty-state">Contacting official NHL EDGE endpoints…</div>';
+  try {
+    let payload;
+    try {
+      const response=await fetch(`/api/edge?playerId=${player.id}&season=${state.season}&position=${encodeURIComponent(player.position)}`,{cache:'no-store'});
+      if(!response.ok)throw new Error(`${response.status} ${response.statusText}`);
+      payload=await response.json();
+    } catch(serverError) {
+      const definitions=player.position==='G'
+        ? [{key:'goalie',label:'Goalie tracking',url:`${NHL_WEB}/edge/goalie-detail/${player.id}/${state.season}/2`}]
+        : [
+          {key:'overview',label:'EDGE overview',url:`${NHL_WEB}/cat/edge/skater-detail/${player.id}/${state.season}/2`},
+          {key:'skatingSpeed',label:'Skating speed',url:`${NHL_WEB}/edge/skater-skating-speed-detail/${player.id}/${state.season}/2`},
+          {key:'skatingDistance',label:'Skating distance',url:`${NHL_WEB}/edge/skater-skating-distance-detail/${player.id}/${state.season}/2`},
+          {key:'shotSpeed',label:'Shot speed',url:`${NHL_WEB}/edge/skater-shot-speed-detail/${player.id}/${state.season}/2`},
+          {key:'shotLocation',label:'Shot location',url:`${NHL_WEB}/edge/skater-shot-location-detail/${player.id}/${state.season}/2`},
+          {key:'zoneTime',label:'Zone time',url:`${NHL_WEB}/edge/skater-zone-time/${player.id}/${state.season}/2`}
+        ];
+      const results=await Promise.allSettled(definitions.map(async definition=>({...definition,data:await fetchJson(definition.url,{timeout:15000,retries:1})})));
+      const sections=results.filter(result=>result.status==='fulfilled').map(result=>({key:result.value.key,label:result.value.label,data:result.value.data}));
+      if(!sections.length)throw serverError;
+      payload={source:'NHL EDGE direct browser fallback',sections,metrics:summarizeEdgeSections(sections),errors:results.filter(result=>result.status==='rejected').map(result=>result.reason?.message||'Unavailable')};
+    }
+    state.edgeCache.set(cacheKey,payload); addDiagnostic('NHL EDGE player data',`${payload.sections?.length||0} EDGE sections loaded for ${player.name}.`,'ok',`${payload.metrics?.length||0} metrics`);
+  } catch(error) {
+    state.edgeCache.set(cacheKey,{error:`NHL EDGE could not load for ${player.name}: ${error.message}`}); addDiagnostic('NHL EDGE request failed',error.message,'warn',player.name);
+  } finally {
+    state.edgeLoading.delete(cacheKey); renderEdgePanel(player);
+  }
 }
 
 function renderGameLog(player) {
@@ -546,7 +757,7 @@ function renderRules() {
 }
 
 function renderDataMode() {
-  const label=state.dataMode==='exact'?'Exact event-synced database: every special category included and all three Fantrax verification players match.':state.dataMode==='synced-unvalidated'?'Game-event database loaded, but at least one verified Fantrax total does not match yet. The data centre shows the warning instead of pretending the totals are exact.':state.dataMode==='live'?'Live NHL season reports: full league loaded; event-only bonuses await the automated Gamecenter sync.':'Offline validation samples: live API was unavailable.';
+  const label=state.dataMode==='exact'?'Exact event-synced database: every special category is included and the Fantrax validation suite passes.':state.dataMode==='synced-unvalidated'?'Game-event database loaded, but at least one verified Fantrax total does not match yet.':state.dataMode==='official-directory'||state.dataMode==='live'?`Complete NHL directory: ${state.players.length} players from official rosters and season reports. Event-only bonuses become exact after the Gamecenter sync.`:'The complete NHL directory could not be loaded; no tiny sample is being presented as the player pool.';
   $('#dataModeLabel').textContent=label; $('#diagnosticBadge').textContent=state.dataMode.toUpperCase().replaceAll('-',' '); $('#gamecenterState').textContent=state.dataMode==='exact'?'VALIDATED':state.dataMode==='synced-unvalidated'?'AUDIT':'SYNC FILE';
   $('#metricExact').textContent=state.players.filter(p=>p.dataQuality==='exact').length.toLocaleString('en-US');
 }
@@ -580,9 +791,10 @@ function bindEvents() {
   ['playerSearch','positionFilter','teamFilter','sortFilter'].forEach(id=>$('#'+id).addEventListener(id==='playerSearch'?'input':'change',()=>{state.visibleCount=60;applyPlayerFilters();}));
   $('#clearSearch').addEventListener('click',()=>{$('#playerSearch').value='';applyPlayerFilters();});
   $('#loadMore').addEventListener('click',()=>{state.visibleCount+=60;renderPlayers();});
-  $$('.lab-tab').forEach(button=>button.addEventListener('click',()=>{$$('.lab-tab').forEach(x=>x.classList.remove('active'));button.classList.add('active');$$('.lab-panel').forEach(panel=>panel.classList.toggle('active',panel.id===`lab-${button.dataset.labtab}`));}));
+  $$('.lab-tab').forEach(button=>button.addEventListener('click',()=>{$$('.lab-tab').forEach(x=>x.classList.remove('active'));button.classList.add('active');$$('.lab-panel').forEach(panel=>panel.classList.toggle('active',panel.id===`lab-${button.dataset.labtab}`));if(button.dataset.labtab==='edge'){const player=selectedPlayer();if(player&&!state.edgeCache.has(`${state.season}:${player.id}`))loadEdgeDataForPlayer(player);}}));
   $('#watchPlayer').addEventListener('click',()=>{const player=selectedPlayer();if(!player)return;state.watchlist.has(player.id)?state.watchlist.delete(player.id):state.watchlist.add(player.id);storage.setItem('fda-watchlist',JSON.stringify([...state.watchlist]));renderLab();});
   $('#refreshSchedule').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadSchedule(player);});
+  $('#loadEdgeData').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadEdgeDataForPlayer(player);});
   $('#runAssistant').addEventListener('click',()=>renderAssistant(findRecommendation()));
   $('#resetRoster').addEventListener('click',()=>{state.roster=[];saveRoster();renderDraft();});
   $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();recalculateAll();});
@@ -591,13 +803,5 @@ function bindEvents() {
 }
 
 bindEvents();
-if (OFFLINE_PREVIEW) {
-  state.dataMode = 'offline';
-  state.players = OFFLINE_VALIDATION.map(calculatePlayer);
-  state.metadata = { generatedAt: new Date().toISOString(), source: 'Offline validation preview' };
-  addDiagnostic('Offline preview mode', 'Network requests were skipped so the layout can be inspected locally.', 'warn', '3 samples');
-  setLiveStatus('error', 'Offline layout preview · live GitHub build uses NHL APIs');
-  recalculateAll();
-} else {
-  refreshAllData();
-}
+if (OFFLINE_PREVIEW) addDiagnostic('Preview query ignored', 'Version 3 no longer replaces the NHL directory with three sample players.', 'warn', 'Live directory required');
+refreshAllData();

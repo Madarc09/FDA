@@ -1,128 +1,83 @@
-# FDA — Fantrax Draft Assist
+# FDA — Fantrax Draft Assist V3
 
-A mobile-first fantasy hockey research and draft application built around **official NHL data** and Nick's exact Fantrax scoring rules.
+A mobile-first fantasy-hockey research and draft application built around the user's Fantrax scoring rules.
 
-## What is different in Version 2
+## What changed in V3
 
-This is no longer a hand-entered demo containing only the players used for scoring tests.
+V3 removes the three-player preview substitution. The player board now requires a complete NHL directory and refuses to label a tiny fallback list as the player pool.
 
-The application now has two automated data modes:
+### Complete player directory
 
-1. **Exact synced database** — the included GitHub Action processes every completed regular-season NHL game and writes a league-wide `data/players.json` file.
-2. **Live API fallback** — before the first sync has completed, the browser loads league-wide official NHL season reports so the interface still contains the full player pool.
+`api/players.js` runs server-side on Vercel and combines:
 
-Official NHL player headshots and team logos appear beside player names using NHL player IDs and team abbreviations.
+1. all 32 official NHL current-roster endpoints;
+2. official NHL skater season reports;
+3. official NHL goalie season reports;
+4. official NHL headshots and team assets.
 
-## Included application sections
+The union includes current roster players with zero games and every player returned by the selected season reports. Records are deduplicated by NHL player ID.
 
-- Dashboard with live data status and fantasy leaders
-- League-wide player database
-- Search, team filter, position filter and multiple sorts
-- Player Laboratory
-  - player image and team identity
-  - calculated FPTS and FP/G
-  - raw NHL statistics
-  - category-by-category fantasy audit
-  - recent game chart
-  - exact game log after event sync
-  - official upcoming team schedule
-- Draft Room
-  - 12 forwards, 8 defence and 3 goalies
-  - locally saved roster
-  - roster totals
-  - best-player assistant by positional need
-- Editable scoring page
-- Data Centre with import diagnostics and source explanations
+### Fantasy FP/G
 
-## Exact scoring rules
+The database stores raw categories. The browser applies the editable Fantrax values in `app.js` and calculates FPTS and FP/G itself.
 
-### Skaters
+The server directory supplies the season-report categories immediately. The scheduled Gamecenter sync in `scripts/sync-nhl.mjs` adds the event-only categories required for exact Fantrax matching:
 
-| Category | Value |
-|---|---:|
-| 1st Star | 3 |
-| Assist | 2.5 |
-| Block | 0.5 |
-| Faceoff lost | -0.2 |
-| Faceoff won | 0.2 |
-| Fight | 3 |
-| Game-winning goal | 2 |
-| Goal | 3.5 |
-| Gordie Howe hat trick | 3 |
-| Hat trick | 3 |
-| Hit | 0.25 |
-| Minor penalty | 2 |
-| Power-play point | 1 |
-| Shootout goal | 2 |
-| Short-handed point | 2 |
-| Shot on goal | 0.25 |
+- First Stars
+- exact minor penalties
+- fights
+- shootout goals
+- hat tricks
+- Gordie Howe hat tricks
+- game-by-game fantasy totals
 
-### Goalies
+When `data/players.json` passes the validation suite, the interface labels those totals **Exact game sync**. It does not call a provisional total exact.
 
-| Category | Value |
-|---|---:|
-| 1st Star | 3 |
-| Assist | 5 |
-| Goal | 50 |
-| Goal against | -1 |
-| Save | 0.25 |
-| Shutout | 3 |
-| Win | 5 |
+### NHL EDGE
 
-The database stores raw statistics. The website calculates fantasy totals dynamically, so changing a scoring value immediately recalculates every loaded player.
+The Player Laboratory contains an NHL EDGE tab. `api/edge.js` loads advanced tracking only for the selected player:
 
-## Official NHL sources used
+- skating speed;
+- skating distance;
+- shot speed;
+- shot location;
+- zone time;
+- goalie tracking where available.
 
-- `https://api.nhle.com/stats/rest` — live league-wide season report fallback
-- `https://api-web.nhle.com/v1/club-schedule-season` — season schedules and game IDs
-- `https://api-web.nhle.com/v1/gamecenter/{gameId}/boxscore` — player game statistics
-- `https://api-web.nhle.com/v1/gamecenter/{gameId}/play-by-play` — faceoffs, penalties, fights, shootouts and strength state
-- `https://api-web.nhle.com/v1/gamecenter/{gameId}/landing` — ordered Three Stars
-- `https://assets.nhle.com` — player headshots and team logos
+This on-demand approach avoids making six EDGE requests for every player when the page opens.
 
-The application does not copy Fantrax fantasy totals. It independently calculates them from raw hockey data.
+## Deployment
 
-## Deploy to the new FDA GitHub repository
+Upload the contents of this folder to the root of the `FDA` GitHub repository and import it into Vercel. No environment variables are required for the NHL player directory.
 
-Upload everything in this folder to the root of the repository. The repository root should contain:
+Vercel serves the static application and these same-origin functions:
 
 ```text
-.github/
-data/
-scripts/
-app.js
-index.html
-package.json
-styles.css
-vercel.json
+/api/players?season=20252026
+/api/edge?playerId=8478402&season=20252026&position=C
 ```
 
-Connect the repository to Vercel as a static site. No build command is required.
+The first GitHub Action run builds the exact game-event database. Open **Actions → Sync NHL fantasy data → Run workflow** to start it immediately instead of waiting for the daily schedule.
 
-## Generate the exact full-season database
+## Data behavior
 
-After the files are in GitHub:
+- The page never substitutes Crosby, Malkin, Cowan, or any other hand-picked samples for the real player directory.
+- If fewer than 300 official player records are returned, the request fails visibly instead of pretending the pool is complete.
+- Current-roster players with no games remain searchable with `0 GP`.
+- NHL player ID is the identity key, preventing duplicate players.
+- API responses are cached to reduce requests.
 
-1. Open the repository's **Actions** tab.
-2. Open **Sync NHL fantasy data**.
-3. Choose **Run workflow**.
-4. Leave the season as `20252026` and run it.
+## Main files
 
-The first run processes the completed regular season and may take several minutes. It commits these generated files back to the repository:
+```text
+index.html                    Interface
+styles.css                   Responsive styling
+app.js                       Player list, scoring, lab and draft behavior
+api/players.js               Complete NHL roster + season-stat directory
+api/edge.js                  On-demand NHL EDGE player data
+scripts/sync-nhl.mjs         Exact game-event fantasy database
+scripts/validate-fantasy.mjs Fantrax verification suite
+.github/workflows/sync-nhl.yml Daily automated update
+```
 
-- `data/players.json`
-- `data/game-contributions.json`
-- `data/last-sync.json`
-- `data/validation.json`
-
-The workflow then compares the generated totals against the independently verified Fantrax results for Sidney Crosby (403.0), Evgeni Malkin (314.6), and Easton Cowan (184.1). The sync is labelled exact only when all three match. Later nightly runs process only games that are not already stored. Vercel then redeploys automatically after the data commit.
-
-## Why the website will be fast
-
-The page does not scrape hundreds of NHL games whenever somebody opens it. The GitHub Action does the slower collection work in the background. Visitors load one prepared JSON database and the browser performs the lightweight fantasy calculation, filtering and sorting.
-
-## Data limitations and audit behaviour
-
-The live browser fallback can load nearly all standard season statistics immediately, but event-only categories such as ordered First Stars and Gordie Howe hat tricks require the Gamecenter sync. The interface labels this fallback as provisional rather than silently claiming an exact total.
-
-Once `data/players.json` is generated, every fantasy contribution is traceable to a game record in `data/game-contributions.json`. The interface labels the database **Exact game-event sync** only after the Crosby, Malkin, and Cowan validation checks all pass; otherwise it displays a visible audit warning. Player names, positions, and current-team identity are enriched from the official league-wide NHL reports, while the browser-facing player file keeps only the 15 most recent game rows per player for speed. The complete game contribution cache remains available for auditing and future recalculation.
+The official NHL endpoints are public-facing services rather than a guaranteed developer API. The application caches responses, identifies its requests, and surfaces source failures instead of silently inventing data.
