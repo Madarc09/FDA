@@ -1,12 +1,13 @@
 {
   "name": "fantrax-draft-assist",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "sync:nhl": "node scripts/sync-nhl.mjs",
     "serve": "npx serve .",
-    "validate:fantasy": "node scripts/validate-fantasy.mjs"
+    "validate:fantasy": "node scripts/validate-fantasy.mjs",
+    "sync:calendar": "node scripts/sync-calendar.mjs"
   },
   "engines": {
     "node": ">=20"

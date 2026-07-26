@@ -54,6 +54,11 @@ const state = {
   diagnostics: [],
   edgeCache: new Map(),
   edgeLoading: new Set(),
+  calendar: {
+    season: '20262027', data: null, status: 'idle', error: '',
+    window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score',
+    pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0
+  },
   route: 'dashboard'
 };
 
@@ -423,6 +428,7 @@ function renderAll() {
   renderLab();
   renderDraft();
   renderRules();
+  renderCalendar();
   renderDataMode();
   renderDiagnostics();
 }
@@ -767,12 +773,351 @@ function renderDiagnostics() {
   list.innerHTML=state.diagnostics.slice().reverse().map(item=>`<div class="diagnostic-row"><i class="${item.status==='warn'?'warn':item.status==='error'?'error':''}"></i><div><strong>${safeText(item.title)}</strong><small>${safeText(item.detail)}</small></div><span>${safeText(item.value)}</span></div>`).join('')||'<div class="empty-state">No import attempts yet.</div>';
 }
 
+function calendarDatasetValid(payload) {
+  return Boolean(payload && Array.isArray(payload.games) && payload.games.length >= 1200 && payload.teams && Object.keys(payload.teams).length >= 30);
+}
+
+function calendarDate(value) { return new Date(`${value}T12:00:00Z`); }
+function dateKey(value) { return value.toISOString().slice(0,10); }
+function addCalendarDays(value, days) { const next = new Date(value); next.setUTCDate(next.getUTCDate() + days); return next; }
+function mondayOf(value) { const date = new Date(value); const day = date.getUTCDay(); return addCalendarDays(date, day === 0 ? -6 : 1 - day); }
+function compactDate(value) { return calendarDate(value).toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'}); }
+function teamDatesForWindow(team, range) {
+  const dates = state.calendar.data?.teams?.[team]?.dates || [];
+  return dates.filter(date => date >= range.start && date <= range.end);
+}
+
+function calendarRange(kind = state.calendar.window) {
+  const metadata = state.calendar.data?.metadata || {};
+  const start = metadata.startDate || state.calendar.data?.games?.[0]?.date;
+  const end = metadata.endDate || state.calendar.data?.games?.at(-1)?.date;
+  if (!start || !end) return { start:'', end:'' };
+  if (kind === 'OPENING') return { start, end: dateKey(addCalendarDays(calendarDate(start), 55)) };
+  if (kind === 'PLAYOFFS') return { start: dateKey(addCalendarDays(calendarDate(end), -27)), end };
+  return { start, end };
+}
+
+function leagueCountsForRange(range) {
+  const counts = {};
+  for (const game of state.calendar.data?.games || []) {
+    if (game.date < range.start || game.date > range.end) continue;
+    counts[game.date] = (counts[game.date] || 0) + 1;
+  }
+  return counts;
+}
+
+function weeklyCoverage(dates) {
+  const weeks = new Map();
+  for (const date of dates) {
+    const week = dateKey(mondayOf(calendarDate(date)));
+    weeks.set(week, (weeks.get(week) || 0) + 1);
+  }
+  const values = [...weeks.values()];
+  if (!values.length) return { average:0, consistency:0 };
+  const average = values.reduce((sum,value)=>sum+value,0)/values.length;
+  const variance = values.reduce((sum,value)=>sum+(value-average)**2,0)/values.length;
+  const deviation = Math.sqrt(variance);
+  return { average, consistency: Math.max(0, 1 - deviation / Math.max(1, average)) };
+}
+
+function pairAnalysis(teamA, teamB, range, leagueCounts) {
+  const a = new Set(teamDatesForWindow(teamA, range));
+  const b = new Set(teamDatesForWindow(teamB, range));
+  const all = new Set([...a,...b]);
+  const overlapDates = [...a].filter(date=>b.has(date));
+  const sparse = date => number(leagueCounts[date]) <= state.calendar.threshold;
+  const offNightStarts = [...a].filter(sparse).length + [...b].filter(sparse).length;
+  const offNightCoverage = [...all].filter(sparse).length;
+  const starts = a.size + b.size;
+  const coverage = all.size;
+  const conflictAvoidance = starts ? 1 - (overlapDates.length * 2 / starts) : 0;
+  const coverageEfficiency = starts ? coverage / starts : 0;
+  const coverageNormalized = Math.max(0, Math.min(1, (coverageEfficiency - .5) * 2));
+  const offNightRate = starts ? offNightStarts / starts : 0;
+  const week = weeklyCoverage(all);
+
+  const fullPlayoffRange = calendarRange('PLAYOFFS');
+  const playoffA = new Set(teamDatesForWindow(teamA, fullPlayoffRange));
+  const playoffB = new Set(teamDatesForWindow(teamB, fullPlayoffRange));
+  const playoffOverlap = [...playoffA].filter(date=>playoffB.has(date)).length;
+  const playoffStarts = playoffA.size + playoffB.size;
+  const playoffAvoidance = playoffStarts ? 1 - (playoffOverlap * 2 / playoffStarts) : 0;
+  const playoffCoverage = new Set([...playoffA,...playoffB]).size;
+
+  const score = 100 * (
+    conflictAvoidance * .42 +
+    coverageNormalized * .20 +
+    Math.min(1, offNightRate * 1.6) * .18 +
+    playoffAvoidance * .15 +
+    week.consistency * .05
+  );
+
+  return {
+    teamA, teamB, score:round(score,1), starts, coverage,
+    overlap:overlapDates.length, uniqueStarts:Math.max(0,starts-overlapDates.length*2),
+    offNightStarts, offNightCoverage, playoffCoverage, playoffOverlap,
+    weeklyAverage:round(week.average,2), weeklyConsistency:round(week.consistency,3),
+    overlapDates
+  };
+}
+
+function trioAnalysis(teams, range, leagueCounts) {
+  const dateLoads = new Map();
+  let starts = 0;
+  let offNightStarts = 0;
+  for (const team of teams) {
+    for (const date of teamDatesForWindow(team, range)) {
+      starts += 1;
+      if (number(leagueCounts[date]) <= state.calendar.threshold) offNightStarts += 1;
+      dateLoads.set(date,(dateLoads.get(date)||0)+1);
+    }
+  }
+  const coverage = dateLoads.size;
+  const conflictStarts = [...dateLoads.values()].reduce((sum,load)=>sum+Math.max(0,load-1),0);
+  const cleanDates = [...dateLoads.values()].filter(load=>load===1).length;
+  const tripleDates = [...dateLoads.values()].filter(load=>load===3).length;
+  const conflictAvoidance = starts ? 1 - conflictStarts / starts : 0;
+  const coverageRate = starts ? coverage / starts : 0;
+  const offNightRate = starts ? offNightStarts / starts : 0;
+
+  const playoffRange = calendarRange('PLAYOFFS');
+  const playoffLoads = new Map();
+  let playoffStarts = 0;
+  for (const team of teams) for (const date of teamDatesForWindow(team, playoffRange)) {
+    playoffStarts += 1;
+    playoffLoads.set(date,(playoffLoads.get(date)||0)+1);
+  }
+  const playoffConflicts = [...playoffLoads.values()].reduce((sum,load)=>sum+Math.max(0,load-1),0);
+  const playoffAvoidance = playoffStarts ? 1 - playoffConflicts/playoffStarts : 0;
+  const score = 100 * (conflictAvoidance*.48 + Math.min(1,coverageRate*1.45)*.22 + Math.min(1,offNightRate*1.6)*.15 + playoffAvoidance*.15);
+  return { teams, score:round(score,1), starts, coverage, conflictStarts, cleanDates, tripleDates, offNightStarts, playoffCoverage:playoffLoads.size };
+}
+
+function recalculateCalendarAnalysis() {
+  if (!calendarDatasetValid(state.calendar.data)) return;
+  const range = calendarRange();
+  const leagueCounts = leagueCountsForRange(range);
+  const teams = Object.keys(state.calendar.data.teams).sort();
+  const pairs = [];
+  for (let i=0;i<teams.length;i+=1) for (let j=i+1;j<teams.length;j+=1) pairs.push(pairAnalysis(teams[i],teams[j],range,leagueCounts));
+  state.calendar.pairs = pairs.sort((a,b)=>b.score-a.score || b.coverage-a.coverage);
+
+  const trios = [];
+  for (let i=0;i<teams.length;i+=1) for (let j=i+1;j<teams.length;j+=1) for (let k=j+1;k<teams.length;k+=1) trios.push(trioAnalysis([teams[i],teams[j],teams[k]],range,leagueCounts));
+  state.calendar.trios = trios.sort((a,b)=>b.score-a.score || b.coverage-a.coverage).slice(0,30);
+
+  const selectedStillExists = state.calendar.selectedPair && pairs.some(pair=>[pair.teamA,pair.teamB].sort().join('-') === [...state.calendar.selectedPair].sort().join('-'));
+  if (!selectedStillExists) state.calendar.selectedPair = [state.calendar.pairs[0]?.teamA,state.calendar.pairs[0]?.teamB].filter(Boolean);
+  state.calendar.weekIndex = 0;
+}
+
+function normalizeDirectScheduleGame(game) {
+  return {
+    id:number(game.id), season:number(game.season), gameType:number(game.gameType), date:game.gameDate,
+    startTimeUTC:game.startTimeUTC||null, away:game.awayTeam?.abbrev||'', home:game.homeTeam?.abbrev||''
+  };
+}
+
+async function loadCalendarDirectFromNHL() {
+  const teams = NHL_TEAMS;
+  const results = await Promise.allSettled(teams.map(async team=>({team,payload:await fetchJson(`${NHL_WEB}/club-schedule-season/${team}/${state.calendar.season}`,{timeout:18000,retries:1})})));
+  const gameMap = new Map();
+  for (const result of results) {
+    if (result.status!=='fulfilled') continue;
+    for (const raw of result.value.payload?.games || []) {
+      const game=normalizeDirectScheduleGame(raw);
+      if(game.id&&game.gameType===2&&String(game.season)===state.calendar.season&&game.date&&game.away&&game.home)gameMap.set(game.id,game);
+    }
+  }
+  const games=[...gameMap.values()].sort((a,b)=>a.date.localeCompare(b.date));
+  const teamData=Object.fromEntries(teams.map(team=>[team,{dates:[],games:[],gameCount:0,backToBacks:0,dayCounts:{}}]));
+  const leagueGamesByDate={};
+  for(const game of games){
+    leagueGamesByDate[game.date]=(leagueGamesByDate[game.date]||0)+1;
+    for(const team of [game.away,game.home]) if(teamData[team]){teamData[team].dates.push(game.date);teamData[team].games.push(game.id);teamData[team].gameCount+=1;}
+  }
+  for(const team of teams) teamData[team].dates=[...new Set(teamData[team].dates)].sort();
+  const dates=games.map(game=>game.date);
+  const payload={season:state.calendar.season,generatedAt:new Date().toISOString(),source:'Official NHL schedules loaded directly in this browser',metadata:{gameCount:games.length,teamCount:teams.length,startDate:dates[0]||null,endDate:dates.at(-1)||null,successfulTeamRequests:results.filter(result=>result.status==='fulfilled').length},leagueGamesByDate,teams:teamData,games};
+  if(!calendarDatasetValid(payload))throw new Error(`Only ${games.length} unique games were returned; FDA will not rank an incomplete schedule.`);
+  return payload;
+}
+
+async function loadCalendarData({ force=false, direct=false }={}) {
+  if(state.calendar.status==='loading')return;
+  state.calendar.status='loading'; state.calendar.error=''; renderCalendar();
+  try {
+    let payload=null;
+    if(direct){ payload=await loadCalendarDirectFromNHL(); }
+    else {
+      if(!force){
+        try{
+          const response=await fetch(`data/calendar-analysis.json?t=${Date.now()}`,{cache:'no-store'});
+          if(response.ok){const cached=await response.json();if(calendarDatasetValid(cached)&&String(cached.season)===state.calendar.season)payload=cached;}
+        }catch{}
+      }
+      if(!payload){
+        const response=await fetch(`/api/calendar?season=${encodeURIComponent(state.calendar.season)}&t=${Date.now()}`,{cache:'no-store'});
+        if(!response.ok)throw new Error(`${response.status} ${response.statusText}`);
+        payload=await response.json();
+      }
+    }
+    if(!calendarDatasetValid(payload))throw new Error(payload?.error||'The schedule response was incomplete.');
+    state.calendar.data=payload; state.calendar.status='ready';
+    recalculateCalendarAnalysis();
+    addDiagnostic('NHL schedule complement database',`${payload.metadata.gameCount} official games loaded for ${payload.season}.`,'ok',`${payload.metadata.teamCount} teams`);
+  }catch(error){
+    state.calendar.status='error'; state.calendar.error=error.message;
+    addDiagnostic('Schedule complement engine',error.message,'warn','No rankings shown');
+  }
+  renderCalendar();
+}
+
+function calendarTopPlayer(team, position=null) {
+  const candidates=state.players.filter(player=>player.team===team&&(!position||positionGroup(player)===position)&&player.gamesPlayed>=10&&!state.roster.includes(player.id));
+  return candidates.sort((a,b)=>b.fpg-a.fpg||b.fantasyPoints-a.fantasyPoints)[0]||state.players.filter(player=>player.team===team&&(!position||positionGroup(player)===position)).sort((a,b)=>b.fpg-a.fpg)[0]||null;
+}
+
+function pairKey(pair) { return [pair.teamA,pair.teamB].sort().join('-'); }
+function pairLogos(pair){return `<span class="pair-logo-stack"><img src="${teamLogoUrl(pair.teamA)}" alt="${pair.teamA}"/><img src="${teamLogoUrl(pair.teamB)}" alt="${pair.teamB}"/></span>`;}
+function scoreClass(score){return score>=80?'elite':score>=70?'good':score>=60?'average':'poor';}
+
+function renderPairSpotlight(element,pair,label) {
+  if(!pair){element.innerHTML=`<p class="eyebrow">${label}</p><div class="calendar-loading">No pair available.</div>`;return;}
+  element.innerHTML=`<p class="eyebrow">${label}</p><button class="spotlight-pair" data-calendar-pair="${pairKey(pair)}">${pairLogos(pair)}<div><h2>${pair.teamA} + ${pair.teamB}</h2><p>${pair.coverage} playable dates · ${pair.overlap} same-night conflicts</p></div><strong class="fit-score ${scoreClass(pair.score)}">${fmt(pair.score,1)}</strong></button><div class="spotlight-stats"><span><b>${pair.uniqueStarts}</b> staggered starts</span><span><b>${pair.offNightStarts}</b> sparse-night starts</span><span><b>${pair.playoffCoverage}</b> playoff dates</span></div>`;
+}
+
+function sortedCalendarPairs() {
+  let pairs=[...state.calendar.pairs];
+  if(state.calendar.focusTeam!=='ALL')pairs=pairs.filter(pair=>pair.teamA===state.calendar.focusTeam||pair.teamB===state.calendar.focusTeam);
+  const sorts={score:(a,b)=>b.score-a.score,coverage:(a,b)=>b.coverage-a.coverage||b.score-a.score,offnights:(a,b)=>b.offNightStarts-a.offNightStarts||b.score-a.score,playoffs:(a,b)=>b.playoffCoverage-a.playoffCoverage||a.playoffOverlap-b.playoffOverlap,conflicts:(a,b)=>a.overlap-b.overlap||b.coverage-a.coverage};
+  return pairs.sort(sorts[state.calendar.sort]||sorts.score);
+}
+
+function renderStarPairs() {
+  const container=$('#starPairGrid');
+  if(!state.players.length){container.innerHTML='<div class="calendar-loading">The player directory must load before FDA can attach stars to team pairings.</div>';return;}
+  const candidates=state.calendar.pairs.slice(0,18).map(pair=>({pair,a:calendarTopPlayer(pair.teamA),b:calendarTopPlayer(pair.teamB)})).filter(row=>row.a&&row.b).slice(0,6);
+  container.innerHTML=candidates.map(({pair,a,b},index)=>`<button class="star-pair-card" data-calendar-pair="${pairKey(pair)}"><span class="star-rank">#${index+1}</span><div class="star-player"><img src="${headshotUrl(a)}" alt=""/><strong>${safeText(a.name)}</strong><small>${a.team} · ${fmt(a.fpg,2)} FP/G</small></div><div class="pair-bridge"><b>${fmt(pair.score,1)}</b><span>FIT</span><small>${pair.overlap} conflicts</small></div><div class="star-player"><img src="${headshotUrl(b)}" alt=""/><strong>${safeText(b.name)}</strong><small>${b.team} · ${fmt(b.fpg,2)} FP/G</small></div></button>`).join('')||'<div class="calendar-loading">No superstar pair can be formed from the current player data.</div>';
+}
+
+function renderGoaliePairs() {
+  const container=$('#goaliePairGrid');
+  if(!state.players.length){container.innerHTML='<div class="calendar-loading">The goalie directory must load before tandem analysis can run.</div>';return;}
+  const candidates=state.calendar.pairs.map(pair=>({pair,a:calendarTopPlayer(pair.teamA,'G'),b:calendarTopPlayer(pair.teamB,'G')})).filter(row=>row.a&&row.b).map(row=>({...row,blend:row.pair.score+(row.a.fpg+row.b.fpg)*.35})).sort((a,b)=>b.blend-a.blend).slice(0,6);
+  container.innerHTML=candidates.map(({pair,a,b},index)=>`<button class="goalie-pair-card" data-calendar-pair="${pairKey(pair)}"><span class="star-rank">#${index+1}</span><div class="goalie-pair-players"><span><img src="${headshotUrl(a)}" alt=""/><strong>${safeText(a.name)}</strong><small>${a.team} · ${fmt(a.fpg,2)} FP/G</small></span><b>+</b><span><img src="${headshotUrl(b)}" alt=""/><strong>${safeText(b.name)}</strong><small>${b.team} · ${fmt(b.fpg,2)} FP/G</small></span></div><div class="goalie-pair-stats"><strong>${fmt(pair.score,1)} fit</strong><span>${pair.overlap} same-night team games</span><span>${pair.offNightStarts} sparse-night team starts</span></div></button>`).join('')||'<div class="calendar-loading">No two-goalie combinations are available from the loaded player data.</div>';
+}
+
+function renderPairRankings() {
+  const pairs=sortedCalendarPairs();
+  const visible=pairs.slice(0,state.calendar.visiblePairs);
+  $('#pairRankingList').innerHTML=visible.map((pair,index)=>`<button class="pair-ranking-row ${state.calendar.selectedPair&&pairKey(pair)===[...state.calendar.selectedPair].sort().join('-')?'selected':''}" data-calendar-pair="${pairKey(pair)}"><span class="pair-name"><b>${index+1}</b>${pairLogos(pair)}<strong>${pair.teamA} + ${pair.teamB}</strong></span><span><b class="fit-score ${scoreClass(pair.score)}">${fmt(pair.score,1)}</b></span><span><b>${pair.coverage}</b><small>dates</small></span><span><b>${pair.overlap}</b><small>same night</small></span><span><b>${pair.offNightStarts}</b><small>starts</small></span><span><b>${pair.playoffCoverage}</b><small>dates</small></span></button>`).join('')||'<div class="calendar-loading">No combinations match the selected team.</div>';
+  $('#loadMorePairs').style.display=pairs.length>state.calendar.visiblePairs?'block':'none';
+}
+
+function renderTrios() {
+  $('#trioList').innerHTML=state.calendar.trios.slice(0,10).map((trio,index)=>`<article class="trio-row"><span class="rank">${index+1}</span><span class="trio-logos">${trio.teams.map(team=>`<img src="${teamLogoUrl(team)}" alt="${team}"/>`).join('')}</span><div><strong>${trio.teams.join(' + ')}</strong><small>${trio.coverage} coverage dates · ${trio.conflictStarts} extra same-night starts</small></div><b class="fit-score ${scoreClass(trio.score)}">${fmt(trio.score,1)}</b></article>`).join('');
+}
+
+function renderTeamProfiles() {
+  const range=calendarRange(); const leagueCounts=leagueCountsForRange(range);
+  const profiles=Object.keys(state.calendar.data.teams).map(team=>{
+    const dates=teamDatesForWindow(team,range); const best=state.calendar.pairs.filter(pair=>pair.teamA===team||pair.teamB===team).sort((a,b)=>b.score-a.score)[0];
+    return {team,games:dates.length,off:dates.filter(date=>number(leagueCounts[date])<=state.calendar.threshold).length,busy:dates.filter(date=>number(leagueCounts[date])>=10).length,b2b:state.calendar.data.teams[team].backToBacks||0,best:best?[best.teamA,best.teamB].find(code=>code!==team):'-',score:best?.score||0};
+  }).sort((a,b)=>b.off-a.off||a.busy-b.busy).slice(0,12);
+  $('#teamScheduleProfiles').innerHTML=profiles.map(profile=>`<article class="team-profile-row"><img src="${teamLogoUrl(profile.team)}" alt=""/><div><strong>${profile.team}</strong><small>Best partner: ${profile.best} (${fmt(profile.score,1)})</small></div><span><b>${profile.off}</b> off-night</span><span><b>${profile.busy}</b> busy</span><span><b>${profile.b2b}</b> B2B</span></article>`).join('');
+}
+
+function rosterDateLoads(range) {
+  const loads={};
+  for(const id of state.roster){
+    const player=state.players.find(row=>row.id===id); if(!player)continue;
+    const group=positionGroup(player);
+    for(const date of teamDatesForWindow(player.team,range)){
+      loads[date] ||= {F:0,D:0,G:0,total:0}; loads[date][group]+=1; loads[date].total+=1;
+    }
+  }
+  return loads;
+}
+
+function renderRosterFit() {
+  const list=$('#rosterFitList'), summary=$('#rosterFitSummary');
+  if(!state.roster.length){summary.textContent='Add players in the Draft Room to make this analysis roster-aware.';list.innerHTML='';return;}
+  const position=$('#rosterFitPosition').value; const limit={F:6,D:4,G:2}[position]; const range=calendarRange(); const leagueCounts=leagueCountsForRange(range); const loads=rosterDateLoads(range);
+  const ownedTeams=new Set(state.roster.map(id=>state.players.find(player=>player.id===id)?.team).filter(Boolean));
+  const rows=Object.keys(state.calendar.data.teams).filter(team=>!ownedTeams.has(team)).map(team=>{
+    let usable=0,bench=0,off=0,newCoverage=0;
+    for(const date of teamDatesForWindow(team,range)){
+      const load=loads[date]||{F:0,D:0,G:0,total:0};
+      if(load[position]<limit){usable+=1;if(number(leagueCounts[date])<=state.calendar.threshold)off+=1;if(load.total===0)newCoverage+=1;}else bench+=1;
+    }
+    const player=calendarTopPlayer(team,position);
+    const score=usable*2+off*1.3+newCoverage*.7-bench*2.5;
+    return {team,usable,bench,off,newCoverage,score,player};
+  }).sort((a,b)=>b.score-a.score||b.usable-a.usable).slice(0,12);
+  summary.innerHTML=`Your ${state.roster.length}-player roster is being checked against the ${range.start} to ${range.end} schedule window. FDA is looking for a <strong>${position==='F'?'forward':position==='D'?'defenceman':'goalie'}</strong> whose team creates starts below the nightly limit of ${limit}.`;
+  list.innerHTML=rows.map((row,index)=>`<article class="roster-fit-row"><span class="rank">${index+1}</span><img class="team-logo-large" src="${teamLogoUrl(row.team)}" alt=""/><div><strong>${row.team}${row.player?` · ${safeText(row.player.name)}`:''}</strong><small>${row.player?`${fmt(row.player.fpg,2)} FP/G · `:''}${row.newCoverage} completely new roster dates</small></div><span><b>${row.usable}</b> usable</span><span><b>${row.off}</b> off-night</span><span class="${row.bench?'warning':''}"><b>${row.bench}</b> bench risk</span></article>`).join('');
+}
+
+function calendarWeeks(range) {
+  if(!range.start||!range.end)return[];
+  let current=mondayOf(calendarDate(range.start)); const finish=calendarDate(range.end); const weeks=[];
+  while(current<=finish){weeks.push(new Date(current));current=addCalendarDays(current,7);}return weeks;
+}
+
+function renderWeeklyCalendar() {
+  const selected=state.calendar.selectedPair;
+  if(!selected?.length){$('#weeklyCalendar').innerHTML='<div class="calendar-loading">Select a team pair.</div>';return;}
+  const range=calendarRange(); const weeks=calendarWeeks(range); state.calendar.weekIndex=Math.max(0,Math.min(state.calendar.weekIndex,weeks.length-1)); const start=weeks[state.calendar.weekIndex];
+  if(!start)return;
+  const leagueCounts=leagueCountsForRange(range); const [a,b]=selected; const datesA=new Set(teamDatesForWindow(a,range)); const datesB=new Set(teamDatesForWindow(b,range));
+  $('#calendarBoardTitle').textContent=`${a} + ${b} weekly calendar`;
+  $('#calendarWeekLabel').textContent=`${compactDate(dateKey(start))} - ${compactDate(dateKey(addCalendarDays(start,6)))}`;
+  $('#calendarPrevWeek').disabled=state.calendar.weekIndex===0; $('#calendarNextWeek').disabled=state.calendar.weekIndex>=weeks.length-1;
+  $('#weeklyCalendar').innerHTML=Array.from({length:7},(_,index)=>{
+    const date=dateKey(addCalendarDays(start,index)); const playsA=datesA.has(date),playsB=datesB.has(date),count=number(leagueCounts[date]);
+    const classes=[playsA&&playsB?'both':playsA||playsB?'single':'empty',count<=state.calendar.threshold&&count>0?'sparse':''].join(' ');
+    return `<article class="calendar-day ${classes}"><header><span>${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][index]}</span><b>${compactDate(date)}</b></header><div class="calendar-day-teams">${playsA?`<img src="${teamLogoUrl(a)}" alt="${a}"/><strong>${a}</strong>`:''}${playsB?`<img src="${teamLogoUrl(b)}" alt="${b}"/><strong>${b}</strong>`:''}${!playsA&&!playsB?'<small>Both off</small>':''}</div><footer>${count} NHL game${count===1?'':'s'}${count&&count<=state.calendar.threshold?' · OFF NIGHT':''}</footer></article>`;
+  }).join('');
+}
+
+function populateCalendarTeamFilter() {
+  const select=$('#calendarTeam'); const current=state.calendar.focusTeam;
+  select.innerHTML='<option value="ALL">League-wide</option>'+Object.keys(state.calendar.data?.teams||{}).sort().map(team=>`<option value="${team}">${team}</option>`).join('');
+  select.value=Object.keys(state.calendar.data?.teams||{}).includes(current)?current:'ALL';
+}
+
+function renderCalendar() {
+  const source=$('#calendarSource'); if(!source)return;
+  $('#calendarSeason').value=state.calendar.season; $('#calendarWindow').value=state.calendar.window; $('#offNightThreshold').value=String(state.calendar.threshold); $('#pairSort').value=state.calendar.sort;
+  $('#calendarSparseLabel').textContent=`${state.calendar.threshold} games or fewer`;
+  if(state.calendar.status==='loading'){
+    source.textContent='Loading all 32 official NHL team schedules and deduplicating games...';
+    ['#bestPairSpotlight','#worstPairSpotlight','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
+    return;
+  }
+  if(!calendarDatasetValid(state.calendar.data)){
+    const message=state.calendar.status==='error'?`Schedule unavailable: ${state.calendar.error}`:'The schedule page is ready. Deploy FDA or use the direct-load button to import the official NHL schedule.';
+    source.textContent=message;
+    $('#calendarGameCount').textContent='-'; $('#calendarPairCount').textContent='-'; $('#calendarSparseDates').textContent='-'; $('#calendarBestCoverage').textContent='-';
+    return;
+  }
+  const data=state.calendar.data, range=calendarRange(), counts=leagueCountsForRange(range), sparseDates=Object.values(counts).filter(count=>count<=state.calendar.threshold).length;
+  source.textContent=`${data.source} · generated ${new Date(data.generatedAt).toLocaleString('en-US')}`;
+  $('#calendarGameCount').textContent=data.metadata.gameCount.toLocaleString('en-US'); $('#calendarDateRange').textContent=`${compactDate(data.metadata.startDate)} - ${compactDate(data.metadata.endDate)}`;
+  $('#calendarPairCount').textContent=state.calendar.pairs.length.toLocaleString('en-US'); $('#calendarSparseDates').textContent=sparseDates; $('#calendarBestCoverage').textContent=state.calendar.pairs[0]?.coverage||'-';
+  populateCalendarTeamFilter();
+  const best=sortedCalendarPairs()[0]||state.calendar.pairs[0], worst=[...state.calendar.pairs].sort((a,b)=>a.score-b.score)[0];
+  renderPairSpotlight($('#bestPairSpotlight'),best,'BEST TWO-TEAM FIT'); renderPairSpotlight($('#worstPairSpotlight'),worst,'WORST TWO-TEAM FIT');
+  renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderWeeklyCalendar();
+}
+
 function navigate(route) {
   state.route=route;
   $$('.page').forEach(page=>page.classList.toggle('active',page.id===`page-${route}`));
   $$('[data-route]').forEach(button=>button.classList.toggle('active',button.dataset.route===route&&(button.classList.contains('nav-link')||button.classList.contains('mobile-link'))));
   window.scrollTo({top:0,behavior:'smooth'});
-  if(route==='lab')renderLab(); if(route==='draft')renderDraft();
+  if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();}
 }
 
 function openPlayer(id) { state.selectedPlayerId=number(id); navigate('lab'); renderLab(); }
@@ -782,8 +1127,9 @@ function bindEvents() {
   document.addEventListener('click',event=>{
     const route=event.target.closest('[data-route]')?.dataset.route; if(route)navigate(route);
     const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId)openPlayer(playerId);
-    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(state.roster.length>=23)return showDialog('Roster full','<p>The current roster plan contains 23 players. Remove one before adding another.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));saveRoster();renderDraft(); }
-    const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){state.roster=state.roster.filter(id=>id!==number(removeId));saveRoster();renderDraft();}
+    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(state.roster.length>=23)return showDialog('Roster full','<p>The current roster plan contains 23 players. Remove one before adding another.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));saveRoster();renderDraft();renderCalendar(); }
+    const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){state.roster=state.roster.filter(id=>id!==number(removeId));saveRoster();renderDraft();renderCalendar();}
+    const calendarPair=event.target.closest('[data-calendar-pair]')?.dataset.calendarPair; if(calendarPair){state.calendar.selectedPair=calendarPair.split('-');state.calendar.weekIndex=0;renderCalendar();document.querySelector('.calendar-board-section')?.scrollIntoView({behavior:'smooth',block:'start'});}
   });
   $('#refreshData').addEventListener('click',()=>refreshAllData({forceLive:true}));
   $('#dataRefreshButton').addEventListener('click',()=>refreshAllData({forceLive:true}));
@@ -796,7 +1142,18 @@ function bindEvents() {
   $('#refreshSchedule').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadSchedule(player);});
   $('#loadEdgeData').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadEdgeDataForPlayer(player);});
   $('#runAssistant').addEventListener('click',()=>renderAssistant(findRecommendation()));
-  $('#resetRoster').addEventListener('click',()=>{state.roster=[];saveRoster();renderDraft();});
+  $('#refreshCalendar').addEventListener('click',()=>loadCalendarData({force:true}));
+  $('#directCalendarLoad').addEventListener('click',()=>loadCalendarData({force:true,direct:true}));
+  $('#calendarSeason').addEventListener('change',event=>{state.calendar.season=event.target.value;state.calendar.data=null;state.calendar.status='idle';state.calendar.visiblePairs=30;loadCalendarData({force:true});});
+  $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;recalculateCalendarAnalysis();renderCalendar();});
+  $('#offNightThreshold').addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);state.calendar.visiblePairs=30;recalculateCalendarAnalysis();renderCalendar();});
+  $('#calendarTeam').addEventListener('change',event=>{state.calendar.focusTeam=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
+  $('#pairSort').addEventListener('change',event=>{state.calendar.sort=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
+  $('#loadMorePairs').addEventListener('click',()=>{state.calendar.visiblePairs+=30;renderPairRankings();});
+  $('#rosterFitPosition').addEventListener('change',()=>renderRosterFit());
+  $('#calendarPrevWeek').addEventListener('click',()=>{state.calendar.weekIndex=Math.max(0,state.calendar.weekIndex-1);renderWeeklyCalendar();});
+  $('#calendarNextWeek').addEventListener('click',()=>{state.calendar.weekIndex+=1;renderWeeklyCalendar();});
+  $('#resetRoster').addEventListener('click',()=>{state.roster=[];saveRoster();renderDraft();renderCalendar();});
   $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();recalculateAll();});
   document.addEventListener('input',event=>{const input=event.target.closest('[data-rule-key]');if(!input)return;state.rules[input.dataset.ruleType][input.dataset.ruleKey].value=number(input.value);saveRules();state.players=state.players.map(calculatePlayer);renderDashboard();applyPlayerFilters();renderLab();renderDraft();});
   $('#closeDialog').addEventListener('click',()=>$('#messageDialog').close());

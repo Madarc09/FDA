@@ -36,6 +36,7 @@
       <button class="nav-link active" data-route="dashboard"><span>⌂</span><b>Dashboard</b></button>
       <button class="nav-link" data-route="players"><span>◉</span><b>Players</b></button>
       <button class="nav-link" data-route="lab"><span>⌁</span><b>Player Lab</b></button>
+      <button class="nav-link" data-route="calendar"><span>▤</span><b>Calendar Fit</b></button>
       <button class="nav-link" data-route="draft"><span>▦</span><b>Draft Room</b></button>
       <button class="nav-link" data-route="rules"><span>⚙</span><b>Scoring</b></button>
       <button class="nav-link" data-route="data"><span>⇅</span><b>Data</b></button>
@@ -52,6 +53,7 @@
             <div class="hero-actions">
               <button class="primary-button" data-route="players">Browse every player</button>
               <button class="secondary-button" data-route="draft">Open draft room</button>
+              <button class="secondary-button" data-route="calendar">Analyze schedules</button>
             </div>
           </div>
           <div class="hero-radar" aria-hidden="true">
@@ -107,7 +109,8 @@
             <article><span class="step done">1</span><div><strong>League-wide player import</strong><small>Official NHL skater and goalie reports.</small></div></article>
             <article><span class="step done">2</span><div><strong>Fantasy calculation</strong><small>Your exact category weights are applied in-browser.</small></div></article>
             <article><span class="step" id="specialStep">3</span><div><strong>Game-event enrichment</strong><small>First stars, minors, fights and hat tricks from completed games.</small></div></article>
-            <article><span class="step">4</span><div><strong>Seven-day prediction</strong><small>Recent form, schedule, opponents and role changes.</small></div></article>
+            <article><span class="step done">4</span><div><strong>Schedule complement engine</strong><small>Best team pairs, off-night starts, playoff coverage and roster fit.</small></div></article>
+            <article><span class="step">5</span><div><strong>Seven-day prediction</strong><small>Recent form, schedule, opponents and role changes.</small></div></article>
           </div>
         </section>
       </section>
@@ -231,6 +234,134 @@
         </div>
       </section>
 
+
+      <section class="page" id="page-calendar">
+        <div class="page-heading calendar-heading">
+          <div>
+            <p class="eyebrow">SCHEDULE COMPLEMENT ENGINE</p>
+            <h1>Draft stars whose teams create more usable starts.</h1>
+            <p>FDA compares all 496 two-team combinations, every three-team core and your current roster against the official NHL schedule.</p>
+          </div>
+          <button class="secondary-button" id="refreshCalendar">Refresh NHL schedule</button>
+        </div>
+
+        <section class="panel calendar-controls">
+          <label>Schedule season
+            <select id="calendarSeason">
+              <option value="20262027">2026-27</option>
+              <option value="20252026">2025-26</option>
+              <option value="20242025">2024-25</option>
+            </select>
+          </label>
+          <label>Analysis window
+            <select id="calendarWindow">
+              <option value="FULL">Full regular season</option>
+              <option value="OPENING">Opening 8 weeks</option>
+              <option value="PLAYOFFS">Final 4 fantasy weeks</option>
+            </select>
+          </label>
+          <label>Sparse-night limit
+            <select id="offNightThreshold">
+              <option value="6">6 games or fewer</option>
+              <option value="7">7 games or fewer</option>
+              <option value="8" selected>8 games or fewer</option>
+              <option value="9">9 games or fewer</option>
+              <option value="10">10 games or fewer</option>
+            </select>
+          </label>
+          <label>Focus team
+            <select id="calendarTeam"><option value="ALL">League-wide</option></select>
+          </label>
+          <div class="calendar-source-row">
+            <span id="calendarSource">Waiting for the official NHL schedule...</span>
+            <button class="text-button" id="directCalendarLoad">Load directly from NHL</button>
+          </div>
+        </section>
+
+        <div class="calendar-metrics">
+          <article class="panel calendar-metric"><span>Official games</span><strong id="calendarGameCount">-</strong><small id="calendarDateRange">Schedule not loaded</small></article>
+          <article class="panel calendar-metric"><span>Team pairs scored</span><strong id="calendarPairCount">-</strong><small>All possible combinations</small></article>
+          <article class="panel calendar-metric"><span>Sparse dates</span><strong id="calendarSparseDates">-</strong><small id="calendarSparseLabel">8 games or fewer</small></article>
+          <article class="panel calendar-metric"><span>Best coverage</span><strong id="calendarBestCoverage">-</strong><small>Distinct playable dates</small></article>
+        </div>
+
+        <div class="calendar-spotlight-grid">
+          <section class="panel pairing-spotlight best" id="bestPairSpotlight">
+            <p class="eyebrow">BEST TWO-TEAM FIT</p>
+            <div class="calendar-loading">Load the NHL schedule to calculate the best pair.</div>
+          </section>
+          <section class="panel pairing-spotlight worst" id="worstPairSpotlight">
+            <p class="eyebrow">WORST TWO-TEAM FIT</p>
+            <div class="calendar-loading">Same-night conflicts will appear here.</div>
+          </section>
+        </div>
+
+        <section class="panel calendar-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">SUPERSTAR PAIRINGS</p><h2>Elite players with complementary calendars</h2></div>
+            <span class="status-badge">Stars ranked by FDA FP/G</span>
+          </div>
+          <p class="calendar-explainer">These are not simply the two highest-scoring players. FDA first ranks team-calendar fit, then attaches the highest-rated current player from each team.</p>
+          <div class="star-pair-grid" id="starPairGrid"><div class="calendar-loading">Player and schedule data are required.</div></div>
+        </section>
+
+        <section class="panel calendar-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">GOALIE TANDEMS</p><h2>Reduce same-night start decisions</h2></div>
+            <span class="status-badge">Team-game overlap lens</span>
+          </div>
+          <p class="calendar-explainer">Goalie starts are not guaranteed, but teams that play on different nights give a two-goalie combination more chances to avoid choosing between simultaneous starts.</p>
+          <div class="goalie-pair-grid" id="goaliePairGrid"><div class="calendar-loading">Goalie and schedule data are required.</div></div>
+        </section>
+
+        <section class="panel calendar-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">ALL 496 COMBINATIONS</p><h2>Best and worst team pairs</h2></div>
+            <select id="pairSort" class="inline-select">
+              <option value="score">Best overall fit</option>
+              <option value="coverage">Most coverage dates</option>
+              <option value="offnights">Most sparse-night starts</option>
+              <option value="playoffs">Best final-four-week fit</option>
+              <option value="conflicts">Fewest same-night conflicts</option>
+            </select>
+          </div>
+          <div class="pair-table-head"><span>Pair</span><span>Fit</span><span>Coverage</span><span>Conflicts</span><span>Off nights</span><span>Playoffs</span></div>
+          <div class="pair-ranking-list" id="pairRankingList"><div class="calendar-loading">Schedule analysis has not loaded.</div></div>
+          <button class="secondary-button load-more" id="loadMorePairs">Show more combinations</button>
+        </section>
+
+        <div class="calendar-analysis-grid">
+          <section class="panel calendar-section">
+            <div class="section-heading compact"><div><p class="eyebrow">BEST THREE-TEAM CORES</p><h2>Spread stars across the week</h2></div></div>
+            <div class="trio-list" id="trioList"><div class="calendar-loading">The engine will score all 4,960 team trios.</div></div>
+          </section>
+          <section class="panel calendar-section">
+            <div class="section-heading compact"><div><p class="eyebrow">TEAM SCHEDULE PROFILES</p><h2>Who owns the off nights?</h2></div></div>
+            <div class="team-profile-list" id="teamScheduleProfiles"><div class="calendar-loading">Team profiles will appear after schedule import.</div></div>
+          </section>
+        </div>
+
+        <section class="panel calendar-section roster-fit-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">YOUR ROSTER FIT</p><h2>Which team adds the most usable starts?</h2></div>
+            <label class="compact-control">Target position
+              <select id="rosterFitPosition"><option value="F">Forward</option><option value="D">Defence</option><option value="G">Goalie</option></select>
+            </label>
+          </div>
+          <p class="calendar-explainer">FDA checks every date against your nightly limits of 6 forwards, 4 defence and 2 goalies. A start counts as usable only when that position is not already full.</p>
+          <div class="roster-fit-summary" id="rosterFitSummary">Add players in the Draft Room to make this analysis roster-aware.</div>
+          <div class="roster-fit-list" id="rosterFitList"></div>
+        </section>
+
+        <section class="panel calendar-section calendar-board-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">MONDAY-SUNDAY VIEW</p><h2 id="calendarBoardTitle">Selected-pair calendar</h2></div>
+            <div class="calendar-board-controls"><button id="calendarPrevWeek" class="icon-button">‹</button><span id="calendarWeekLabel">-</span><button id="calendarNextWeek" class="icon-button">›</button></div>
+          </div>
+          <div class="weekly-calendar" id="weeklyCalendar"><div class="calendar-loading">Choose a pair to inspect its week-by-week fit.</div></div>
+        </section>
+      </section>
+
       <section class="page" id="page-draft">
         <div class="page-heading">
           <div><p class="eyebrow">DRAFT ROOM</p><h1>Build around starts, value and roster fit</h1><p>Your roster is saved on this device while we shape the final league workflow.</p></div>
@@ -283,7 +414,8 @@
           <section class="panel source-card"><span class="source-number">02</span><div><p class="eyebrow">OFFICIAL NHL GAMECENTER</p><h2>Game-event enrichment</h2><p>Completed games provide ordered Three Stars, penalties, fights, shootouts and the events needed for exact scoring audits.</p><code>api-web.nhle.com/v1/gamecenter</code></div><span class="source-state" id="gamecenterState">SYNC FILE</span></section>
           <section class="panel source-card"><span class="source-number">03</span><div><p class="eyebrow">OFFICIAL NHL ASSETS</p><h2>Headshots and team logos</h2><p>Player images and team marks are loaded beside names using NHL player IDs and team abbreviations.</p><code>assets.nhle.com</code></div><span class="source-state live">LIVE</span></section>
           <section class="panel source-card"><span class="source-number">04</span><div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Advanced tracking on demand</h2><p>Speed, distance, shot profile and zone-time data load from NHL EDGE inside the Player Laboratory.</p><code>api-web.nhle.com/v1/edge</code></div><span class="source-state live">ON DEMAND</span></section>
-          <section class="panel source-card"><span class="source-number">05</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
+          <section class="panel source-card"><span class="source-number">05</span><div><p class="eyebrow">OFFICIAL NHL SCHEDULE</p><h2>Team calendar and game dates</h2><p>Every club schedule is joined by game ID to measure overlap, sparse nights, back-to-backs and fantasy-playoff coverage.</p><code>api-web.nhle.com/v1/club-schedule-season</code></div><span class="source-state live">CACHED</span></section>
+          <section class="panel source-card"><span class="source-number">06</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
         </div>
         <section class="panel sync-status-card">
           <div class="section-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2>Import diagnostics</h2></div><span class="status-badge" id="diagnosticBadge">Waiting</span></div>
@@ -296,6 +428,7 @@
       <button class="mobile-link active" data-route="dashboard"><span>⌂</span><small>Home</small></button>
       <button class="mobile-link" data-route="players"><span>◉</span><small>Players</small></button>
       <button class="mobile-link" data-route="lab"><span>⌁</span><small>Lab</small></button>
+      <button class="mobile-link" data-route="calendar"><span>▤</span><small>Calendar</small></button>
       <button class="mobile-link" data-route="draft"><span>▦</span><small>Draft</small></button>
       <button class="mobile-link" data-route="rules"><span>⚙</span><small>Rules</small></button>
     </nav>
