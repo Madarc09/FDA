@@ -1,0 +1,114 @@
+{
+  "season": "2026-27",
+  "source": "Champions League static salary master — keeper records embedded for FDA",
+  "metadata": {
+    "scope": "keeper-subset",
+    "recordCount": 12,
+    "fullMasterExpectedRecords": 2197,
+    "generatedAt": "2026-07-28T19:30:00Z",
+    "zeroMeansUnsigned": true,
+    "matchFields": [
+      "team",
+      "normalized player name",
+      "position"
+    ]
+  },
+  "records": [
+    {
+      "team": "PHI",
+      "teamName": "Philadelphia Flyers",
+      "player": "Michkov, Matvei",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 950000
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Carlsson, Leo",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 18000000
+    },
+    {
+      "team": "CBJ",
+      "teamName": "Columbus Blue Jackets",
+      "player": "Fantilli, Adam",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 0
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Misa, Michael",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 986250
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Dickinson, Sam",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 953750
+    },
+    {
+      "team": "MTL",
+      "teamName": "Montreal Canadiens",
+      "player": "Dobson, Noah",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 9500000
+    },
+    {
+      "team": "MIN",
+      "teamName": "Minnesota Wild",
+      "player": "Hughes, Quinn",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 7850000
+    },
+    {
+      "team": "BOS",
+      "teamName": "Boston Bruins",
+      "player": "McAvoy, Charlie",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 9500000
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Askarov, Yaroslav",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 2000000
+    },
+    {
+      "team": "COL",
+      "teamName": "Colorado Avalanche",
+      "player": "Blackwood, MacKenzie",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 5250000
+    },
+    {
+      "team": "BOS",
+      "teamName": "Boston Bruins",
+      "player": "Hagens, James",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 986250
+    },
+    {
+      "team": "WSH",
+      "teamName": "Washington Capitals",
+      "player": "Protas, Ilya",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 932500
+    }
+  ]
+}

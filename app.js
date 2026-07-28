@@ -42,6 +42,10 @@ const DEFAULT_RULES = {
 
 const ACTIVE_ROSTER_TARGETS = { F:12, D:8, G:3 };
 const NIGHTLY_LIMITS = { F:6, D:4, G:2 };
+const NHL_SALARY_CAP = 104000000;
+const NHL_LEAGUE_MINIMUM = 850000;
+const DEFAULT_UNSIGNED_ESTIMATES = { 'adam fantilli':12000000 };
+const BUDGET_PLAN_LABELS = { minimum:'League minimum', balanced:'Balanced roster', starters:'Starter heavy' };
 const KEEPER_SEED_VERSION = '2026-07-28-v1';
 const KEEPER_SEED = [
   { id:-9001, name:'Matvei Michkov', team:'PHI', position:'F' },
@@ -78,6 +82,11 @@ const state = {
     pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0, teamPlans: [], generatorStatus:'idle', generatorError:''
   },
   history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map(), fantasySeason:'20252026', fantasyPosition:'ALL', fantasyStatus:'idle', fantasyError:'', fantasyCache:new Map() },
+  salary: {
+    status:'idle', error:'', source:'', records:[], metadata:{}, index:new Map(),
+    plan:storage.getItem('fda-budget-plan') || 'minimum',
+    estimates:loadSalaryEstimates()
+  },
   route: 'dashboard'
 };
 
@@ -110,6 +119,85 @@ function loadRoster() {
 function saveRoster() { storage.setItem('fda-roster', JSON.stringify(state.roster)); }
 function saveRules() { storage.setItem('fda-scoring-rules', JSON.stringify(state.rules)); }
 
+function loadSalaryEstimates() {
+  try { return { ...DEFAULT_UNSIGNED_ESTIMATES, ...JSON.parse(storage.getItem('fda-salary-estimates') || '{}') }; }
+  catch { return { ...DEFAULT_UNSIGNED_ESTIMATES }; }
+}
+function saveSalarySettings() {
+  storage.setItem('fda-budget-plan',state.salary.plan);
+  storage.setItem('fda-salary-estimates',JSON.stringify(state.salary.estimates));
+}
+function money(value, compact=false) {
+  const amount=number(value);
+  if(compact&&Math.abs(amount)>=1000000)return `$${(amount/1000000).toLocaleString('en-US',{minimumFractionDigits:amount%1000000?1:0,maximumFractionDigits:2})}M`;
+  if(compact&&Math.abs(amount)>=1000)return `$${(amount/1000).toLocaleString('en-US',{maximumFractionDigits:0})}K`;
+  return amount.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+}
+function normalizeTeamCode(value) {
+  const team=String(value||'').trim().toUpperCase();
+  return ({NAS:'NSH',WAS:'WSH'}[team]||team);
+}
+function salaryName(value) {
+  const raw=String(value||'').trim();
+  if(raw.includes(',')){const [last,...rest]=raw.split(',');return `${rest.join(',').trim()} ${last.trim()}`.trim();}
+  return raw;
+}
+function salaryPosition(value) {
+  const position=String(value||'').toUpperCase();
+  if(position==='G'||position.includes('GOAL'))return 'G';
+  if(position==='D'||position==='LD'||position==='RD'||position.includes('DEF'))return 'D';
+  return 'F';
+}
+function salaryKey(name,team,position) { return `${normalizeTeamCode(team)}|${normalizedName(salaryName(name))}|${salaryPosition(position)}`; }
+function playerEstimateKey(player) { return normalizedName(player?.name); }
+function normalizeSalaryRecord(row) {
+  const name=row.player??row.Player??row.name??row.Name??row.fullName??'';
+  const team=row.team??row.Team??row.teamAbbrev??row.teamCode??'';
+  const position=row.position??row.Position??row.pos??'';
+  const salary=number(row.salary??row.capHit??row['2026-27 Salary']??row.aav??0);
+  const rosterStatus=row.rosterStatus??row['Roster Status']??row.status??'';
+  return { name:salaryName(name), team:normalizeTeamCode(team), position:salaryPosition(position), salary, rosterStatus:String(rosterStatus||''), raw:row };
+}
+function salaryRowsFromPayload(payload) {
+  if(Array.isArray(payload))return payload;
+  for(const key of ['records','players','salaries','data'])if(Array.isArray(payload?.[key]))return payload[key];
+  return [];
+}
+function rebuildSalaryIndex() {
+  state.salary.index=new Map();
+  for(const record of state.salary.records)state.salary.index.set(salaryKey(record.name,record.team,record.position),record);
+}
+function findSalaryRecord(player) {
+  return state.salary.index.get(salaryKey(player.name,player.team,positionGroup(player))) || null;
+}
+function applySalaryDataToPlayers() {
+  state.players=state.players.map(player=>{
+    const record=findSalaryRecord(player);
+    if(!record)return { ...player, capHit:null, salaryStatus:'missing', salaryRecord:null };
+    return { ...player, capHit:record.salary>0?record.salary:null, salaryStatus:record.salary>0?'signed':'unsigned', salaryRecord:record };
+  });
+}
+async function loadSalaryData({ force=false }={}) {
+  if(state.salary.status==='loading')return;
+  if(!force&&state.salary.records.length)return;
+  state.salary.status='loading'; state.salary.error='';
+  try {
+    const response=await fetch(`data/SALARY_CAP_SPACE.json?t=${Date.now()}`,{cache:'no-store'});
+    if(!response.ok)throw new Error(`${response.status} ${response.statusText}`);
+    const payload=await response.json();
+    const rows=salaryRowsFromPayload(payload);
+    if(!rows.length)throw new Error('The salary file contains no player records.');
+    state.salary.records=rows.map(normalizeSalaryRecord).filter(row=>row.name&&row.team);
+    state.salary.metadata=payload.metadata||{};
+    state.salary.source=payload.source||state.salary.metadata.source||'Static 2026-27 salary master';
+    state.salary.status='ready';
+    rebuildSalaryIndex();
+    addDiagnostic('Static salary master',`${state.salary.records.length} salary records loaded for cap matching.`,'ok',state.salary.metadata.scope==='keeper-subset'?'Keeper set':`${state.salary.records.length} records`);
+  } catch(error) {
+    state.salary.status='error'; state.salary.error=error.message; state.salary.records=[]; state.salary.index=new Map();
+    addDiagnostic('Static salary master unavailable',error.message,'warn','Cap estimates only');
+  }
+}
 function normalizedName(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,' '); }
 function rosterPlayers() { return state.roster.map(id=>state.players.find(player=>player.id===id)).filter(Boolean); }
 function activeRosterPlayers() { return rosterPlayers().filter(player=>!player.minorKeeper); }
@@ -470,6 +558,8 @@ async function refreshAllData({ forceLive = false } = {}) {
       if (!directoryLoaded) await loadLiveReports();
     }
     ensureKeeperPlayers();
+    await loadSalaryData({force:forceLive});
+    applySalaryDataToPlayers();
     seedKeeperRoster();
     recalculateAll();
     setLiveStatus(state.dataMode === 'synced-unvalidated' ? 'error' : 'live', state.dataMode === 'exact' ? 'Exact game-event database loaded · Fantrax validation passed' : state.dataMode === 'synced-unvalidated' ? 'Game-event sync loaded · Fantrax validation needs review' : `Official NHL player directory loaded · ${state.players.length} players`);
@@ -480,6 +570,7 @@ async function refreshAllData({ forceLive = false } = {}) {
     addDiagnostic('Complete NHL import unavailable', error.message, 'error', 'No sample substitution');
     setLiveStatus('error', 'Complete NHL directory unavailable · keeper roster remains available');
     ensureKeeperPlayers();
+    if(state.salary.records.length)applySalaryDataToPlayers();
     seedKeeperRoster();
     recalculateAll();
   }
@@ -795,6 +886,85 @@ async function loadSchedule(player) {
   } catch(error){ list.innerHTML=`<div class="empty-state">Schedule request failed: ${safeText(error.message)}</div>`; addDiagnostic('Schedule request failed',error.message,'warn',player.team); }
 }
 
+function planningSalaryForPlayer(player) {
+  if(number(player?.capHit)>0)return number(player.capHit);
+  const saved=number(state.salary.estimates[playerEstimateKey(player)]);
+  return saved>0?saved:NHL_LEAGUE_MINIMUM;
+}
+function rosterCapSummary(players=activeRosterPlayers()) {
+  const signed=players.filter(player=>number(player.capHit)>0).reduce((sum,player)=>sum+number(player.capHit),0);
+  const unresolved=players.filter(player=>!number(player.capHit));
+  const estimates=unresolved.reduce((sum,player)=>sum+planningSalaryForPlayer(player),0);
+  const planned=signed+estimates;
+  return { signed, unresolved, estimates, planned, remaining:NHL_SALARY_CAP-planned, percent:Math.max(0,planned/NHL_SALARY_CAP*100) };
+}
+function openRosterCounts(players=activeRosterPlayers()) {
+  const counts={F:0,D:0,G:0}; players.forEach(player=>counts[positionGroup(player)]++);
+  return Object.fromEntries(Object.entries(ACTIVE_ROSTER_TARGETS).map(([group,target])=>[group,Math.max(0,target-counts[group])]));
+}
+function minimumBudgetSlots(open) {
+  return Object.fromEntries(Object.entries(open).map(([group,count])=>[group,Array.from({length:count},()=>NHL_LEAGUE_MINIMUM)]));
+}
+function distributeBudget(slots, extra, recipients) {
+  if(extra<=0||!recipients.length)return;
+  const share=Math.floor(extra/recipients.length/10000)*10000;
+  recipients.forEach(([group,index])=>{slots[group][index]+=share;});
+  let remainder=extra-share*recipients.length;
+  for(const [group,index] of recipients){if(remainder<=0)break;const add=Math.min(10000,remainder);slots[group][index]+=add;remainder-=add;}
+}
+function buildBudgetPlan(mode=state.salary.plan) {
+  const active=activeRosterPlayers();
+  const open=openRosterCounts(active);
+  const cap=rosterCapSummary(active);
+  const slots=minimumBudgetSlots(open);
+  const minimumCost=Object.values(open).reduce((sum,count)=>sum+count*NHL_LEAGUE_MINIMUM,0);
+  let extra=Math.max(0,cap.remaining-minimumCost);
+  if(mode==='balanced'){
+    const weighted=[];
+    const weights={F:1.1,D:1,G:.8};
+    for(const group of ['F','D','G'])for(let index=0;index<open[group];index++)weighted.push([group,index,weights[group]]);
+    const weightTotal=weighted.reduce((sum,row)=>sum+row[2],0)||1;
+    let allocated=0;
+    for(const [group,index,weight] of weighted){const add=Math.floor(extra*weight/weightTotal/50000)*50000;slots[group][index]+=add;allocated+=add;}
+    let remainder=extra-allocated;
+    for(const [group,index] of weighted){if(remainder<=0)break;const add=Math.min(50000,remainder);slots[group][index]+=add;remainder-=add;}
+  } else if(mode==='starters'){
+    const counts={F:0,D:0,G:0};active.forEach(player=>counts[positionGroup(player)]++);
+    let recipients=[];
+    for(const group of ['F','D','G'])for(let index=0;index<Math.min(open[group],Math.max(0,NIGHTLY_LIMITS[group]-counts[group]));index++)recipients.push([group,index]);
+    if(!recipients.length)recipients=['F','D','G'].flatMap(group=>slots[group].length?[[group,0]]:[]);
+    distributeBudget(slots,extra,recipients);
+  }
+  const projectedOpen=Object.values(slots).flat().reduce((sum,value)=>sum+value,0);
+  const reserve=cap.remaining-projectedOpen;
+  return { mode,label:BUDGET_PLAN_LABELS[mode]||mode,slots,open,minimumCost,projectedOpen,reserve,cap,projectedTotal:cap.planned+projectedOpen };
+}
+function salaryBadge(player, compact=false) {
+  if(number(player?.capHit)>0)return money(player.capHit,compact);
+  if(player?.salaryStatus==='unsigned')return 'UNSIGNED';
+  return 'SALARY PENDING';
+}
+function renderCapPlanner(plan) {
+  const cap=plan.cap;
+  $('#capUsed').textContent=money(cap.planned,true);
+  $('#capRoom').textContent=money(cap.remaining,true);
+  $('#capSigned').textContent=money(cap.signed);
+  $('#capPlanned').textContent=money(cap.planned);
+  $('#capRemaining').textContent=money(cap.remaining);
+  $('#capLimit').textContent=money(NHL_SALARY_CAP);
+  $('#capProgress').style.width=`${Math.min(100,cap.percent)}%`;
+  $('#capProgress').classList.toggle('over',cap.remaining<0);
+  $('#salaryMasterState').textContent=state.salary.status==='ready'?(state.salary.metadata.scope==='keeper-subset'?'KEEPER SET':`${state.salary.records.length} RECORDS`):state.salary.status==='error'?'ESTIMATE MODE':'LOADING';
+  $('#salaryMasterState').className=`status-badge ${state.salary.status==='error'?'warning':''}`;
+  const unresolved=$('#unsignedEstimateEditor');
+  unresolved.innerHTML=cap.unresolved.map(player=>`<label class="unsigned-estimate"><span><strong>${safeText(player.name)}</strong><small>${player.salaryStatus==='unsigned'?'Unsigned in static master':'No salary match'} · planning estimate</small></span><span class="money-input"><b>$</b><input type="number" min="${NHL_LEAGUE_MINIMUM}" step="50000" data-salary-estimate="${safeText(playerEstimateKey(player))}" value="${planningSalaryForPlayer(player)}"/></span></label>`).join('')||'<div class="cap-confirmed">Every active roster salary is signed and matched.</div>';
+  $$('.budget-plan-button').forEach(button=>button.classList.toggle('active',button.dataset.budgetPlan===plan.mode));
+  const reserveText=plan.reserve>=0?`${money(plan.reserve)} remains unassigned`:`${money(Math.abs(plan.reserve))} over the cap`;
+  const modeCopy=plan.mode==='minimum'?'Every open roster spot is temporarily priced at league minimum, showing the most money you can concentrate into upgrades.':plan.mode==='balanced'?'The remaining cap is spread across all open forward, defence and goalie spots, with a slight forward premium.':'Bench spots stay at minimum while the extra cap is concentrated into the open nightly-starter positions.';
+  $('#budgetPlanSummary').innerHTML=`<div><strong>${safeText(plan.label)}</strong><span>${modeCopy}</span></div><div class="budget-plan-numbers"><span><small>Open-slot budget</small><b>${money(plan.projectedOpen)}</b></span><span><small>Projected final cap</small><b>${money(plan.projectedTotal)}</b></span><span><small>After plan</small><b class="${plan.reserve<0?'negative':''}">${reserveText}</b></span></div>`;
+  $('#capWarning').innerHTML=cap.unresolved.length?`<strong>${cap.unresolved.length} estimated contract${cap.unresolved.length===1?'':'s'}:</strong> ${cap.unresolved.map(player=>safeText(player.name)).join(', ')}. These estimates affect planning but are not presented as signed cap hits.`:'All active salaries are confirmed in the static file.';
+}
+
 function renderDraft() {
   state.roster=state.roster.filter(id=>state.players.some(player=>player.id===id));
   seedKeeperRoster();
@@ -807,17 +977,25 @@ function renderDraft() {
   $('#rosterD').textContent=`${counts.D} / ${ACTIVE_ROSTER_TARGETS.D}`;
   $('#rosterG').textContent=`${counts.G} / ${ACTIVE_ROSTER_TARGETS.G}`;
   $('#rosterFpts').textContent=fmt(active.reduce((sum,player)=>sum+player.fantasyPoints,0),1);
+  const plan=buildBudgetPlan();
+  renderCapPlanner(plan);
 
   const mainGroups=['F','D','G'].map(group=>{
     const players=active.filter(player=>positionGroup(player)===group);
-    const slots=Array.from({length:ACTIVE_ROSTER_TARGETS[group]},(_,index)=>players[index]);
-    return `<div class="roster-group"><div class="roster-group-title"><strong>${group==='F'?'Forwards':group==='D'?'Defence':'Goalies'}</strong><span>${players.length} / ${ACTIVE_ROSTER_TARGETS[group]}</span></div><div class="slot-grid">${slots.map(player=>player?`<div class="roster-slot filled ${player.keeper?'keeper-slot':''}"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G${player.keeper?' · KEEPER':''}</small></div>${player.keeper?'<span class="roster-lock">LOCKED</span>':`<button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}"></button>`}</div>`:`<div class="roster-slot empty">OPEN ${group}</div>`).join('')}</div></div>`;
+    const openEstimates=plan.slots[group]||[];
+    const slots=Array.from({length:ACTIVE_ROSTER_TARGETS[group]},(_,index)=>players[index]||null);
+    let openIndex=0;
+    return `<div class="roster-group"><div class="roster-group-title"><strong>${group==='F'?'Forwards':group==='D'?'Defence':'Goalies'}</strong><span>${players.length} / ${ACTIVE_ROSTER_TARGETS[group]}</span></div><div class="slot-grid">${slots.map(player=>{
+      if(player)return `<div class="roster-slot filled ${player.keeper?'keeper-slot':''}"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G${player.keeper?' · KEEPER':''}</small><span class="slot-salary ${number(player.capHit)?'signed':'estimated'}">${number(player.capHit)?salaryBadge(player,true):`${salaryBadge(player)} · PLAN ${money(planningSalaryForPlayer(player),true)}`}</span></div>${player.keeper?'<span class="roster-lock">LOCKED</span>':`<button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}"></button>`}</div>`;
+      const estimate=openEstimates[openIndex++]||NHL_LEAGUE_MINIMUM;
+      return `<div class="roster-slot empty budgeted-slot"><span>OPEN ${group}</span><strong>${money(estimate,true)}</strong><small>${safeText(plan.label)} estimate</small></div>`;
+    }).join('')}</div></div>`;
   }).join('');
-  const minorGroup=`<div class="roster-group minor-roster-group"><div class="roster-group-title"><strong>Minors</strong><span>${minors.length} protected · outside 23</span></div><div class="slot-grid minors-grid">${minors.map(player=>`<div class="roster-slot filled minor-slot"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · MINOR KEEPER</small></div><span class="roster-lock">MINORS</span></div>`).join('')||'<div class="roster-slot empty">NO MINORS</div>'}</div></div>`;
+  const minorGroup=`<div class="roster-group minor-roster-group"><div class="roster-group-title"><strong>Minors</strong><span>${minors.length} protected · outside 23 and active cap</span></div><div class="slot-grid minors-grid">${minors.map(player=>`<div class="roster-slot filled minor-slot"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · MINOR KEEPER</small><span class="slot-salary excluded">${number(player.capHit)?salaryBadge(player,true):'SALARY PENDING'} · NOT COUNTED</span></div><span class="roster-lock">MINORS</span></div>`).join('')||'<div class="roster-slot empty">NO MINORS</div>'}</div></div>`;
   $('#rosterSlots').innerHTML=mainGroups+minorGroup;
 
   const available=state.players.filter(player=>!state.roster.includes(player.id)&&!player.keeper&&player.gamesPlayed>=10).slice(0,20);
-  $('#draftList').innerHTML=available.map(player=>`<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${fmt(player.fantasyPoints,1)} FPTS</span></div><button data-add-roster="${player.id}">ADD</button></div>`).join('');
+  $('#draftList').innerHTML=available.map(player=>`<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small><span class="draft-salary ${number(player.capHit)?'signed':'pending'}">${salaryBadge(player,true)}</span></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${fmt(player.fantasyPoints,1)} FPTS</span></div><button data-add-roster="${player.id}">ADD</button></div>`).join('');
   renderAssistant();
 }
 
@@ -837,7 +1015,7 @@ function findRecommendation() {
 function renderAssistant(recommended=null) {
   const box=$('#assistantRecommendation');
   if(!recommended){ const need=rosterNeed(); box.innerHTML=`<p>Your largest open roster need is <strong>${need==='F'?'forward':need==='D'?'defence':'goalie'}</strong>. Run the assistant to rank the best undrafted fit using the current scoring rules.</p>`; return; }
-  box.innerHTML=`<div class="recommend-player"><img src="${headshotUrl(recommended)}" alt=""/><div><strong>${safeText(recommended.name)}</strong><small>${recommended.team} · ${recommended.position} · ${recommended.gamesPlayed} GP</small><span>${fmt(recommended.fpg,2)} FP/G</span></div></div>`;
+  box.innerHTML=`<div class="recommend-player"><img src="${headshotUrl(recommended)}" alt=""/><div><strong>${safeText(recommended.name)}</strong><small>${recommended.team} · ${recommended.position} · ${recommended.gamesPlayed} GP · ${salaryBadge(recommended,true)}</small><span>${fmt(recommended.fpg,2)} FP/G</span></div></div>`;
 }
 
 function renderRules() {
@@ -1664,8 +1842,19 @@ function bindEvents() {
     const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId)openPlayer(playerId);
     const historyPlayerId=event.target.closest('[data-history-player]')?.dataset.historyPlayer; if(historyPlayerId)openHistoricalPlayer(historyPlayerId);
     const historyTab=event.target.closest('[data-history-tab]')?.dataset.historyTab; if(historyTab){state.history.tab=historyTab;renderHistory();if(historyTab==='fantasy')loadHistoricalFantasySeason();else if(state.history.status==='idle')loadHistoricalData();}
-    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(activeRosterCount()>=23)return showDialog('Roster full','<p>The active roster already contains 23 players. Protected minors do not count toward that limit.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar(); }
+    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){
+      const player=state.players.find(item=>item.id===number(addId));
+      if(!player)return;
+      const group=positionGroup(player); const groupCount=activeRosterPlayers().filter(item=>positionGroup(item)===group).length;
+      if(activeRosterCount()>=23)return showDialog('Roster full','<p>The active roster already contains 23 players. Protected minors do not count toward that limit.</p>');
+      if(groupCount>=ACTIVE_ROSTER_TARGETS[group])return showDialog(`${group==='F'?'Forward':group==='D'?'Defence':'Goalie'} slots full`,`<p>Your roster already has the required ${ACTIVE_ROSTER_TARGETS[group]} ${group==='F'?'forwards':group==='D'?'defencemen':'goalies'}.</p>`);
+      if(state.salary.metadata.scope!=='keeper-subset'&&player.salaryStatus==='unsigned')return showDialog('Unsigned player','<p>This player has a $0 entry in the static master and cannot be drafted as a free player.</p>');
+      const projected=rosterCapSummary([...activeRosterPlayers(),player]);
+      if(projected.planned>NHL_SALARY_CAP)return showDialog('Over the salary cap',`<p>Adding ${safeText(player.name)} would produce a planning cap hit of <strong>${money(projected.planned)}</strong>, above the ${money(NHL_SALARY_CAP)} limit.</p>`);
+      if(!state.roster.includes(number(addId)))state.roster.push(number(addId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar();
+    }
     const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){const player=state.players.find(item=>item.id===number(removeId));if(player?.keeper)return;state.roster=state.roster.filter(id=>id!==number(removeId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar();}
+    const budgetPlan=event.target.closest('[data-budget-plan]')?.dataset.budgetPlan; if(budgetPlan){state.salary.plan=budgetPlan;saveSalarySettings();renderDraft();}
     const calendarPair=event.target.closest('[data-calendar-pair]')?.dataset.calendarPair; if(calendarPair){state.calendar.selectedPair=calendarPair.split('-');state.calendar.weekIndex=0;renderCalendar();document.querySelector('.calendar-board-section')?.scrollIntoView({behavior:'smooth',block:'start'});}
   });
   $('#refreshData').addEventListener('click',()=>refreshAllData({forceLive:true}));
@@ -1696,7 +1885,11 @@ function bindEvents() {
   $('#fantasyHistorySeason').addEventListener('change',event=>{state.history.fantasySeason=event.target.value;loadHistoricalFantasySeason();});
   $('#fantasyHistoryPosition').addEventListener('change',event=>{state.history.fantasyPosition=event.target.value;renderHistory();});
   $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();invalidateTeamPlans();recalculateAll();});
-  document.addEventListener('input',event=>{const input=event.target.closest('[data-rule-key]');if(!input)return;state.rules[input.dataset.ruleType][input.dataset.ruleKey].value=number(input.value);saveRules();invalidateTeamPlans();state.history.fantasyCache.clear();state.history.fantasyStatus='idle';state.players=state.players.map(calculatePlayer);renderDashboard();applyPlayerFilters();renderLab();renderDraft();});
+  document.addEventListener('input',event=>{
+    const salaryInput=event.target.closest('[data-salary-estimate]');
+    if(salaryInput){state.salary.estimates[salaryInput.dataset.salaryEstimate]=Math.max(NHL_LEAGUE_MINIMUM,number(salaryInput.value));saveSalarySettings();renderDraft();return;}
+    const input=event.target.closest('[data-rule-key]');if(!input)return;state.rules[input.dataset.ruleType][input.dataset.ruleKey].value=number(input.value);saveRules();invalidateTeamPlans();state.history.fantasyCache.clear();state.history.fantasyStatus='idle';state.players=state.players.map(calculatePlayer);applySalaryDataToPlayers();renderDashboard();applyPlayerFilters();renderLab();renderDraft();
+  });
   $('#closeDialog').addEventListener('click',()=>$('#messageDialog').close());
 }
 

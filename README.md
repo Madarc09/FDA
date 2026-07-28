@@ -89,3 +89,22 @@ Environment variables:
 - `NHL_SEASON` - stats/Gamecenter season, default `20252026`
 - `NHL_SCHEDULE_SEASON` - schedule season, default `20262027`
 - `NHL_SYNC_CONCURRENCY` - Gamecenter synchronization concurrency
+
+
+## Salary-cap roster planning (v7)
+
+- Uses the official 2026-27 NHL upper limit of **$104,000,000** and league minimum of **$850,000**.
+- The Draft Room always preserves the locked keeper roster and enforces exactly **12 forwards, 8 defencemen and 3 goalies**.
+- Signed cap, planning cap and remaining cap are displayed separately. Adam Fantilli remains unsigned in the master and defaults to the previously established **$12,000,000 planning estimate**, which is editable on the page.
+- Empty roster spots can be priced with three modes: **League minimum**, **Balanced roster**, and **Starter heavy**. The buttons only change estimates in open spots; they never add, remove or replace keepers.
+- Protected minors remain outside the 23-player active roster and active fantasy cap display.
+- Salary matching supports `data/SALARY_CAP_SPACE.json` as either an array or an object containing `records`, `players`, `salaries`, or `data`. It matches normalized team, player name and F/D/G position; `NAS`/`NSH` and `WAS`/`WSH` are normalized.
+- A `$0` master entry is shown as **Unsigned**, never as a free player.
+
+The file supplied in this conversation was the salary-master completion note rather than the complete 2,197-row data export, so this package embeds the confirmed keeper/minor records and is already wired to accept the complete `SALARY_CAP_SPACE.json` at the same path without code changes.
+
+Validate the bundled salary file with:
+
+```bash
+npm run validate:salaries
+```

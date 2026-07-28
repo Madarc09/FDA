@@ -471,6 +471,33 @@
           <div><small>Defence</small><strong id="rosterD">0 / 8</strong></div>
           <div><small>Goalies</small><strong id="rosterG">0 / 3</strong></div>
           <div><small>Projected FPTS</small><strong id="rosterFpts">0.0</strong></div>
+          <div><small>Planning cap used</small><strong id="capUsed">$0</strong></div>
+          <div><small>Planning cap room</small><strong id="capRoom">$104M</strong></div>
+        </section>
+
+        <section class="panel cap-planner">
+          <div class="section-heading">
+            <div><p class="eyebrow">2026-27 SALARY CAP</p><h2>Cap usage and open-slot budget</h2></div>
+            <span class="status-badge" id="salaryMasterState">LOADING</span>
+          </div>
+          <div class="cap-metric-grid">
+            <div><small>Signed cap</small><strong id="capSigned">$0</strong><span>Confirmed contracts only</span></div>
+            <div><small>Planning cap</small><strong id="capPlanned">$0</strong><span>Includes unsigned estimates</span></div>
+            <div><small>Planning room</small><strong id="capRemaining">$0</strong><span>Before open roster slots</span></div>
+            <div><small>League limit</small><strong id="capLimit">$104,000,000</strong><span>True NHL upper limit</span></div>
+          </div>
+          <div class="cap-track" aria-label="Salary cap usage"><span id="capProgress"></span></div>
+          <div class="cap-warning" id="capWarning"></div>
+          <div class="unsigned-estimate-editor" id="unsignedEstimateEditor"></div>
+          <div class="budget-planner-controls">
+            <div><p class="eyebrow">OPEN-SLOT VARIATIONS</p><h3>Price every empty 12F / 8D / 3G roster spot</h3></div>
+            <div class="budget-plan-buttons">
+              <button class="budget-plan-button active" data-budget-plan="minimum" type="button">League minimum</button>
+              <button class="budget-plan-button" data-budget-plan="balanced" type="button">Balanced</button>
+              <button class="budget-plan-button" data-budget-plan="starters" type="button">Starter heavy</button>
+            </div>
+          </div>
+          <div class="budget-plan-summary" id="budgetPlanSummary"></div>
         </section>
 
         <div class="draft-layout">
@@ -514,6 +541,7 @@
           <section class="panel source-card"><span class="source-number">05</span><div><p class="eyebrow">OFFICIAL NHL SCHEDULE</p><h2>Team calendar and game dates</h2><p>Every club schedule is joined by game ID to measure overlap, sparse nights, back-to-backs and fantasy-playoff coverage.</p><code>api-web.nhle.com/v1/club-schedule-season</code></div><span class="source-state live">CACHED</span></section>
           <section class="panel source-card"><span class="source-number">06</span><div><p class="eyebrow">OFFICIAL NHL HISTORY</p><h2>Career and single-season records</h2><p>All-time skater and goalie leaderboards come from the same NHL Stats historical archive and remain separate from modern-only categories.</p><code>api.nhle.com/stats/rest/en</code></div><span class="source-state live">ON DEMAND</span></section>
           <section class="panel source-card"><span class="source-number">07</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
+          <section class="panel source-card"><span class="source-number">08</span><div><p class="eyebrow">STATIC SALARY MASTER</p><h2>2026-27 cap hits</h2><p>Cap hits are matched by normalized player name, NHL team and position. A $0 entry remains unsigned and is never treated as a free contract.</p><code>data/SALARY_CAP_SPACE.json</code></div><span class="source-state derived">STATIC</span></section>
         </div>
         <section class="panel sync-status-card">
           <div class="section-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2>Import diagnostics</h2></div><span class="status-badge" id="diagnosticBadge">Waiting</span></div>
