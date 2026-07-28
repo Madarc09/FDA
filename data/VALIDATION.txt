@@ -1,0 +1,28 @@
+CHAMPIONS LEAGUE 2026-27 SALARY MASTER — VALIDATION
+
+Verified: 2026-07-28
+
+Complete master:
+- 32 NHL teams
+- 2,197 total player records
+- 1,425 signed salary records
+- 772 zero-salary/unsigned records
+
+Roster-status counts:
+- Active roster: 750
+- Non-roster: 732
+- Unsigned draft choice: 715
+
+Data rules verified:
+- All 32 team codes are present
+- No duplicate team + player + position records
+- Zero salaries are marked unsigned
+- Positive salaries are marked signed
+- No buyout, retained-cap, or bonus-carryover rows
+
+Files:
+- SALARY_CAP_SPACE.json — recommended webpage source
+- SALARY_CAP_SPACE.csv — exact flat-table export of the JSON records
+- SALARY_CAP_MASTER_2026-27.xlsx — human-readable workbook
+- SALARY_CAP_MASTER_2026-27.csv — human-readable master CSV
+- SALARY_CAP_SPACE_ZERO_LIST.csv — only the 772 zero-salary records

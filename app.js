@@ -45,7 +45,7 @@ const NIGHTLY_LIMITS = { F:6, D:4, G:2 };
 const NHL_SALARY_CAP = 104000000;
 const NHL_LEAGUE_MINIMUM = 850000;
 const CALENDAR_LOW_CAP_MAX = 3000000;
-const DEFAULT_UNSIGNED_ESTIMATES = { 'adam fantilli':12000000 };
+const DEFAULT_UNSIGNED_ESTIMATES = { adamfantilli:12000000 };
 const BUDGET_PLAN_DEFINITIONS = {
   minimum:{ label:'Maximum flexibility', description:'Every empty slot stays at league minimum so the unassigned reserve is completely visible.' },
   balanced:{ label:'Balanced roster', description:'The remaining cap is spread across every open slot with a small forward premium.' },
@@ -94,7 +94,7 @@ const state = {
   },
   history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map(), fantasySeason:'20252026', fantasyPosition:'ALL', fantasyStatus:'idle', fantasyError:'', fantasyCache:new Map() },
   salary: {
-    status:'idle', error:'', source:'', records:[], metadata:{}, index:new Map(),
+    status:'idle', error:'', source:'', records:[], metadata:{}, index:new Map(), namePositionIndex:new Map(),
     plan:storage.getItem('fda-budget-plan') || 'minimum',
     estimates:loadSalaryEstimates(),
     corrections:loadSalaryCorrections(),
@@ -184,6 +184,7 @@ function salaryPosition(value) {
   return 'F';
 }
 function salaryKey(name,team,position) { return `${normalizeTeamCode(team)}|${normalizedName(salaryName(name))}|${salaryPosition(position)}`; }
+function salaryNamePositionKey(name,position) { return `${normalizedName(salaryName(name))}|${salaryPosition(position)}`; }
 function playerEstimateKey(player) { return normalizedName(player?.name); }
 function normalizeSalaryRecord(row) {
   const name=row.player??row.Player??row.name??row.Name??row.fullName??'';
@@ -191,7 +192,7 @@ function normalizeSalaryRecord(row) {
   const position=row.position??row.Position??row.pos??'';
   const salary=number(row.salary??row.capHit??row['2026-27 Salary']??row.aav??0);
   const rosterStatus=row.rosterStatus??row['Roster Status']??row.status??'';
-  return { name:salaryName(name), team:normalizeTeamCode(team), position:salaryPosition(position), salary, rosterStatus:String(rosterStatus||''), raw:row };
+  return { name:salaryName(name), nameKey:normalizedName(row.nameKey||name), team:normalizeTeamCode(team), position:salaryPosition(position), salary, salaryState:String(row.salaryState||'').toLowerCase(), rosterStatus:String(rosterStatus||''), raw:row };
 }
 function salaryRowsFromPayload(payload) {
   if(Array.isArray(payload))return payload;
@@ -217,21 +218,32 @@ function parseCsvRows(text) {
 }
 function rebuildSalaryIndex() {
   state.salary.index=new Map();
-  for(const record of state.salary.records)state.salary.index.set(salaryKey(record.name,record.team,record.position),record);
+  state.salary.namePositionIndex=new Map();
+  for(const record of state.salary.records){
+    state.salary.index.set(salaryKey(record.name,record.team,record.position),record);
+    state.salary.namePositionIndex.set(salaryNamePositionKey(record.nameKey||record.name,record.position),record);
+  }
 }
 function playerDataKey(player) { return salaryKey(player?.name,player?.team,positionGroup(player)); }
+function storedPlayerOverride(store,player) {
+  const exact=store[playerDataKey(player)];
+  if(exact!==undefined)return exact;
+  const suffix=`|${normalizedName(player?.name)}|${positionGroup(player)}`;
+  const fallback=Object.entries(store).find(([key])=>key.endsWith(suffix));
+  return fallback?fallback[1]:undefined;
+}
 function salaryCorrectionFor(player) {
-  const value=state.salary.corrections[playerDataKey(player)];
+  const value=storedPlayerOverride(state.salary.corrections,player);
   return value===undefined?null:number(value);
 }
 function predictionForPlayer(player) {
-  const value=number(state.salary.predictions[playerDataKey(player)]);
+  const value=number(storedPlayerOverride(state.salary.predictions,player));
   return value>0?value:null;
 }
 function playerRankingFpg(player) { return predictionForPlayer(player) ?? number(player?.fpg); }
 function findSalaryRecord(player) {
   const key=playerDataKey(player);
-  const base=state.salary.index.get(key) || null;
+  const base=state.salary.index.get(key) || state.salary.namePositionIndex.get(salaryNamePositionKey(player?.name,positionGroup(player))) || null;
   const correction=salaryCorrectionFor(player);
   if(correction===null)return base;
   return { ...(base||{name:player.name,team:normalizeTeamCode(player.team),position:positionGroup(player),rosterStatus:'Nick update'}), salary:correction, corrected:true };
@@ -241,8 +253,24 @@ function applySalaryDataToPlayers() {
     const record=findSalaryRecord(player);
     const predictionFpg=predictionForPlayer(player);
     if(!record)return { ...player, capHit:null, salaryStatus:'missing', salaryRecord:null, salaryCorrected:false, predictionFpg };
-    return { ...player, capHit:record.salary>0?record.salary:null, salaryStatus:record.salary>0?'signed':'unsigned', salaryRecord:record, salaryCorrected:Boolean(record.corrected), predictionFpg };
+    return { ...player, team:record.team||player.team, capHit:record.salary>0?record.salary:null, salaryStatus:record.salary>0?'signed':'unsigned', salaryRecord:record, salaryCorrected:Boolean(record.corrected), predictionFpg };
   });
+}
+function ensureSalaryMasterPlayers() {
+  if(!state.salary.records.length)return;
+  const existing=new Set(state.players.map(player=>salaryNamePositionKey(player.name,positionGroup(player))));
+  for(const [recordIndex,record] of state.salary.records.entries()){
+    const key=salaryNamePositionKey(record.name,record.position);
+    if(existing.has(key))continue;
+    const salaryOnlyId=-300000-recordIndex;
+    state.players.push(calculatePlayer({
+      id:salaryOnlyId, name:record.name, team:record.team, position:record.position,
+      playerType:record.position==='G'?'goalie':'skater', gamesPlayed:0,
+      stats:blankPlayerStats(), games:[], currentRoster:record.rosterStatus==='Active roster',
+      dataQuality:'salary-master-only', salaryOnly:true
+    }));
+    existing.add(key);
+  }
 }
 async function loadSalaryData({ force=false }={}) {
   if(state.salary.status==='loading')return;
@@ -255,17 +283,17 @@ async function loadSalaryData({ force=false }={}) {
     const rows=salaryRowsFromPayload(payload);
     if(!rows.length)throw new Error('The packaged salary reference contains no player records.');
     state.salary.records=rows.map(normalizeSalaryRecord).filter(row=>row.name&&row.team);
-    state.salary.metadata=payload.metadata||{};
-    state.salary.source=payload.source||state.salary.metadata.source||'Packaged 2026-27 salary reference';
+    state.salary.metadata={...payload,...(payload.metadata||{})};
+    state.salary.source=payload.source||payload.sourceMethod||payload.sourceFile||state.salary.metadata.source||'Packaged 2026-27 salary reference';
     state.salary.status='ready';
     rebuildSalaryIndex();
     addDiagnostic('Packaged salary file',`${state.salary.records.length} salary records loaded directly from data/SALARY_CAP_SPACE.json.`,'ok',`${state.salary.records.length} records`);
   } catch(error) {
-    state.salary.status='error'; state.salary.error=error.message; state.salary.records=[]; state.salary.index=new Map();
+    state.salary.status='error'; state.salary.error=error.message; state.salary.records=[]; state.salary.index=new Map(); state.salary.namePositionIndex=new Map();
     addDiagnostic('Packaged salary file unavailable',error.message,'warn','Cap estimates only');
   }
 }
-function normalizedName(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,' '); }
+function normalizedName(value) { return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase().replace(/[^a-z0-9]+/g,''); }
 function rosterPlayers() { return state.roster.map(id=>state.players.find(player=>player.id===id)).filter(Boolean); }
 function activeRosterPlayers() { return rosterPlayers().filter(player=>!player.minorKeeper); }
 function minorRosterPlayers() { return rosterPlayers().filter(player=>player.minorKeeper); }
@@ -626,6 +654,7 @@ async function refreshAllData({ forceLive = false } = {}) {
     }
     ensureKeeperPlayers();
     await loadSalaryData({force:forceLive});
+    ensureSalaryMasterPlayers();
     applySalaryDataToPlayers();
     seedKeeperRoster();
     recalculateAll();
@@ -637,7 +666,9 @@ async function refreshAllData({ forceLive = false } = {}) {
     addDiagnostic('Complete NHL import unavailable', error.message, 'error', 'No sample substitution');
     setLiveStatus('error', 'Complete NHL directory unavailable · keeper roster remains available');
     ensureKeeperPlayers();
-    if(state.salary.records.length)applySalaryDataToPlayers();
+    await loadSalaryData({force:forceLive});
+    ensureSalaryMasterPlayers();
+    applySalaryDataToPlayers();
     seedKeeperRoster();
     recalculateAll();
   }
@@ -1093,8 +1124,8 @@ function recommendationCandidates(plan){
     !player.keeper&&
     number(player.capHit)>0&&
     number(player.capHit)<=info.budget&&
-    number(player.gamesPlayed)>0&&
-    number(player.fpg)>0
+    (number(player.gamesPlayed)>0||predictionForPlayer(player)>0)&&
+    playerRankingFpg(player)>0
   );
   const sort=state.salary.recommendationSort;
   available.sort(sort==='VALUE'?(a,b)=>playerValueRate(b)-playerValueRate(a)||b.fpg-a.fpg:
@@ -1108,7 +1139,7 @@ function recommendationCandidates(plan){
 function salaryBadge(player, compact=false) {
   if(number(player?.capHit)>0)return money(player.capHit,compact);
   if(player?.salaryStatus==='unsigned')return 'UNSIGNED';
-  return 'SALARY PENDING';
+  return 'NOT IN MASTER';
 }
 function renderCapPlanner(plan) {
   const cap=plan.cap;
@@ -1120,12 +1151,12 @@ function renderCapPlanner(plan) {
   $('#capLimit').textContent=money(NHL_SALARY_CAP);
   $('#capProgress').style.width=`${Math.min(100,cap.percent)}%`;
   $('#capProgress').classList.toggle('over',cap.remaining<0);
-  const expected=number(state.salary.metadata.fullMasterExpectedRecords);
+  const expected=number(state.salary.metadata.recordCount||state.salary.metadata.fullMasterExpectedRecords);
   const incomplete=expected>0&&state.salary.records.length<expected;
   $('#salaryMasterState').textContent=state.salary.status==='ready'?`${state.salary.records.length} FILE ROWS`:state.salary.status==='error'?'ESTIMATE MODE':'LOADING';
   $('#salaryMasterState').className=`status-badge ${state.salary.status==='error'||incomplete?'warning':''}`;
   const fileStatus=$('#salaryFileStatus');
-  if(fileStatus)fileStatus.textContent=state.salary.status==='ready'?`${state.salary.records.length.toLocaleString('en-US')} packaged records are being referenced automatically. ${Object.keys(state.salary.corrections).length} local salary update${Object.keys(state.salary.corrections).length===1?'':'s'} saved.`:state.salary.error;
+  if(fileStatus)fileStatus.textContent=state.salary.status==='ready'?`${state.salary.records.length.toLocaleString('en-US')} packaged records across ${number(state.salary.metadata.teamCount)||32} NHL teams are being referenced automatically (${number(state.salary.metadata.signedCount)||state.salary.records.filter(record=>record.salary>0).length} signed; ${number(state.salary.metadata.zeroSalaryCount)||state.salary.records.filter(record=>record.salary===0).length} unsigned). ${Object.keys(state.salary.corrections).length} local salary update${Object.keys(state.salary.corrections).length===1?'':'s'} saved.`:state.salary.error;
   const unresolved=$('#unsignedEstimateEditor');
   unresolved.innerHTML=cap.unresolved.map(player=>`<label class="unsigned-estimate"><span><strong>${safeText(player.name)}</strong><small>${player.salaryStatus==='unsigned'?'Unsigned in static master':'No salary match'} · planning estimate</small></span><span class="money-input"><b>$</b><input type="number" min="${NHL_LEAGUE_MINIMUM}" step="50000" data-salary-estimate="${safeText(playerEstimateKey(player))}" value="${planningSalaryForPlayer(player)}"/></span></label>`).join('')||'<div class="cap-confirmed">Every active roster salary is signed and matched.</div>';
   $$('.budget-plan-button').forEach(button=>button.classList.toggle('active',button.dataset.budgetPlan===plan.mode));
@@ -1177,7 +1208,7 @@ function renderDraftPool(plan){
   const search=state.salary.draftSearch.trim().toLowerCase();
   const position=state.salary.draftPosition;
   const selectedInfo=selectedSlotBudgetInfo(plan);
-  let available=state.players.filter(player=>!state.roster.includes(player.id)&&!player.keeper&&number(player.gamesPlayed)>0);
+  let available=state.players.filter(player=>!state.roster.includes(player.id)&&!player.keeper&&(number(player.gamesPlayed)>0||predictionForPlayer(player)>0));
   if(search)available=available.filter(player=>`${player.name} ${player.team}`.toLowerCase().includes(search));
   if(position!=='ALL')available=available.filter(player=>positionGroup(player)===position);
   if(state.salary.draftFitsSlot&&selectedInfo.slot)available=available.filter(player=>positionGroup(player)===selectedInfo.slot.group&&number(player.capHit)>0&&number(player.capHit)<=selectedInfo.budget);
@@ -1206,7 +1237,7 @@ function renderSalaryPredictionEditor() {
   const results=$('#salaryEditorResults'), form=$('#salaryEditorForm');
   if(!results||!form)return;
   const matches=salaryEditorMatches();
-  results.innerHTML=state.salary.editorSearch?matches.map(player=>`<button type="button" class="salary-editor-result ${state.salary.editorPlayerId===player.id?'active':''}" data-edit-player="${player.id}"><span><strong>${safeText(player.name)}</strong><small>${player.team} · ${positionGroup(player)}</small></span><span><b>${salaryBadge(player,true)}</b><small>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted`:'No prediction'}</small></span></button>`).join('')||'<div class="assistant-empty">No player matches that search.</div>':'<div class="assistant-empty">Search any player in the NHL database to update salary or add your own FP/G prediction.</div>';
+  results.innerHTML=state.salary.editorSearch?matches.map(player=>`<button type="button" class="salary-editor-result ${state.salary.editorPlayerId===player.id?'active':''}" data-edit-player="${player.id}"><span><strong>${safeText(player.name)}</strong><small>${player.team} · ${positionGroup(player)}</small></span><span><b>${salaryBadge(player,true)}</b><small>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted`:'No prediction'}</small></span></button>`).join('')||'<div class="assistant-empty">No player matches that search.</div>':'<div class="assistant-empty">Search any player in the 2,197-record salary master to update salary or add your own FP/G prediction.</div>';
   const player=state.players.find(item=>item.id===number(state.salary.editorPlayerId));
   if(!player){form.innerHTML='<div class="assistant-empty">Choose a player above.</div>';return;}
   const correction=salaryCorrectionFor(player);
@@ -1277,7 +1308,7 @@ function renderDraft() {
       return `<button type="button" class="roster-slot empty budgeted-slot ${selected?'selected-budget-slot':''}" data-select-budget-slot="${group}:${index}"><span>OPEN ${group} ${index+1}</span><strong>${money(estimate,true)}</strong><small>${selected?'SELECTED · ':'PRESS TO SHOP · '}${safeText(plan.label)}</small></button>`;
     }).join('')}</div></div>`;
   }).join('');
-  const minorGroup=`<div class="roster-group minor-roster-group"><div class="roster-group-title"><strong>Minors</strong><span>${minors.length} protected · outside 23 and active cap</span></div><div class="slot-grid minors-grid">${minors.map(player=>`<div class="roster-slot filled minor-slot"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · MINOR KEEPER</small><span class="slot-salary excluded">${number(player.capHit)?salaryBadge(player,true):'SALARY PENDING'} · NOT COUNTED</span></div><span class="roster-lock">MINORS</span></div>`).join('')||'<div class="roster-slot empty">NO MINORS</div>'}</div></div>`;
+  const minorGroup=`<div class="roster-group minor-roster-group"><div class="roster-group-title"><strong>Minors</strong><span>${minors.length} protected · outside 23 and active cap</span></div><div class="slot-grid minors-grid">${minors.map(player=>`<div class="roster-slot filled minor-slot"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · MINOR KEEPER</small><span class="slot-salary excluded">${number(player.capHit)?salaryBadge(player,true):'NOT IN MASTER'} · NOT COUNTED</span></div><span class="roster-lock">MINORS</span></div>`).join('')||'<div class="roster-slot empty">NO MINORS</div>'}</div></div>`;
   $('#rosterSlots').innerHTML=mainGroups+minorGroup;
   renderSlotRecommendations(plan);
   renderDraftPool(plan);
@@ -1642,7 +1673,7 @@ function rosterForwardPartnerRows() {
   const cap=rosterCapSummary(activeRosterPlayers());
   const openSlots=Math.max(0,23-activeRosterCount());
   const hardMax=Math.max(0,cap.remaining-Math.max(0,openSlots-1)*NHL_LEAGUE_MINIMUM);
-  const candidates=state.players.filter(player=>positionGroup(player)==='F'&&!rosterIds.has(player.id)&&!player.keeper&&number(player.gamesPlayed)>0&&number(player.capHit)>0&&number(player.capHit)<=hardMax);
+  const candidates=state.players.filter(player=>positionGroup(player)==='F'&&!rosterIds.has(player.id)&&!player.keeper&&(number(player.gamesPlayed)>0||predictionForPlayer(player)>0)&&number(player.capHit)>0&&number(player.capHit)<=hardMax);
   const maxProduction=Math.max(1,...candidates.map(playerRankingFpg));
   const maxEfficiency=Math.max(1,...candidates.map(playerProjectedValueRate));
   return forwards.map(forward=>{

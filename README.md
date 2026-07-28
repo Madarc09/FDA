@@ -90,7 +90,7 @@ Environment variables:
 - `NHL_SCHEDULE_SEASON` - schedule season, default `20262027`
 - `NHL_SYNC_CONCURRENCY` - Gamecenter synchronization concurrency
 
-## Roster Value Lab (v9)
+## Roster Value Lab (v10)
 
 ### Roster-forward Calendar Fit
 
@@ -112,15 +112,16 @@ Each result displays its Production / Dollar / Calendar component scores so the 
 
 ### Physical salary reference
 
-The site no longer asks for a browser import. It automatically reads `data/SALARY_CAP_SPACE.json`, which is generated from and packaged beside the physical workbook:
+The site automatically reads the complete static 2026–27 salary master from `data/SALARY_CAP_SPACE.json`. No browser import is required. The package includes:
 
-- `data/SALARY_CAP_FILE_2026-27.xlsx`
-- `data/SALARY_CAP_SPACE.json`
-- `data/SALARY_CAP_SPACE.csv`
+- `data/SALARY_CAP_SPACE.json` — website source with 2,197 records
+- `data/SALARY_CAP_SPACE.csv` — flat export
+- `data/SALARY_CAP_MASTER_2026-27.xlsx` — physical workbook
+- `data/SALARY_CAP_MASTER_2026-27.csv` — human-readable master CSV
+- `data/SALARY_CAP_SPACE_ZERO_LIST.csv` — 772 unsigned/$0 records
+- `data/VALIDATION.txt` — master validation summary
 
-The uploaded workbook used for this version contains **74 Anaheim records on one sheet**, not the previously described 2,197-row league-wide export. Eleven non-Anaheim keeper records from the prior FDA package are retained, producing **85 packaged salary rows**. The metadata preserves the expected 2,197-row target so the shortfall is explicit rather than disguised.
-
-A `$0` salary remains unsigned and can never be drafted as a free player. Matching continues to use normalized NHL team, player name and F/D/G position.
+Validation confirms 32 NHL teams, 2,197 total records, 1,425 signed contracts and 772 unsigned/$0 records. A `$0` salary remains unsigned and can never be drafted as a free player. Matching uses exact team + normalized name + position first, then the unique normalized name + position record when an NHL stats feed still carries a player's previous team.
 
 ### Salary corrections and personal predictions
 
@@ -133,6 +134,8 @@ The Draft Room includes a player editor that can:
 - download a new `FDA-SALARY-PREDICTION-MASTER-2026-27.json` containing the packaged records plus saved salary and prediction updates.
 
 Salary corrections and predictions persist in the browser. They immediately update cap usage, open-slot budgets, the available-player market, the five-player slot assistant and Calendar Fit.
+
+All 2,197 salary-master records are searchable in the editor. A player without NHL season statistics can still receive a personal FP/G prediction; once a positive prediction is saved, that player becomes available to the draft market and prediction-based sorters.
 
 Both the slot assistant and full player market now support **Highest prediction** and **Best predicted FP/G per $1M** sort modes in addition to actual FP/G, actual value, recent form and salary sorting.
 
