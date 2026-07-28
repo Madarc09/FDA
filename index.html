@@ -266,6 +266,7 @@
           <button class="history-tab" data-history-tab="seasons">Greatest seasons</button>
           <button class="history-tab" data-history-tab="goalies">Goalies</button>
           <button class="history-tab" data-history-tab="defence">Defence</button>
+          <button class="history-tab" data-history-tab="fantasy">Fantasy FPG</button>
         </div>
 
         <section class="panel history-main-card">
@@ -277,11 +278,18 @@
             </div>
             <span class="source-chip">Official NHL</span>
           </div>
+          <div class="fantasy-history-controls" id="fantasyHistoryControls" hidden>
+            <label>Season<select id="fantasyHistorySeason">
+              <option value="20252026">2025-26</option><option value="20242025">2024-25</option><option value="20232024">2023-24</option><option value="20222023">2022-23</option><option value="20212022">2021-22</option><option value="20202021">2020-21</option><option value="20192020">2019-20</option><option value="20182019">2018-19</option><option value="20172018">2017-18</option><option value="20162017">2016-17</option><option value="20152016">2015-16</option><option value="20142015">2014-15</option><option value="20132014">2013-14</option><option value="20122013">2012-13</option><option value="20112012">2011-12</option><option value="20102011">2010-11</option><option value="20092010">2009-10</option><option value="20082009">2008-09</option><option value="20072008">2007-08</option>
+            </select></label>
+            <label>Position<select id="fantasyHistoryPosition"><option value="ALL">All players</option><option value="F">Forwards</option><option value="D">Defence</option><option value="G">Goalies</option></select></label>
+            <span id="fantasyHistoryCoverage">Tracked FPG uses every category available in official season reports.</span>
+          </div>
           <div class="history-table-head" id="historyTableHead"></div>
           <div class="history-leader-list" id="historyLeaderList"><div class="calendar-loading">Open Historical to load the official NHL archive.</div></div>
         </section>
 
-        <div class="history-secondary-grid">
+        <div class="history-secondary-grid" id="historySecondaryGrid">
           <section class="panel history-list-card">
             <div class="section-heading compact"><div><p class="eyebrow" id="historySideOneEyebrow">GOAL SCORERS</p><h2 id="historySideOneTitle">Career goals</h2></div></div>
             <div class="history-mini-list" id="historySideOne"></div>
@@ -310,8 +318,8 @@
         <div class="page-heading calendar-heading">
           <div>
             <p class="eyebrow">SCHEDULE COMPLEMENT ENGINE</p>
-            <h1>Draft stars whose teams create more usable starts.</h1>
-            <p>FDA compares all 496 two-team combinations, every three-team core and your current roster against the official NHL schedule.</p>
+            <h1>Turn your keeper core into the most playable 23-man roster.</h1>
+            <p>FDA simulates the players you already own, starts the best 6F / 4D / 2G every night, and identifies which NHL teams should fill the remaining roster spots.</p>
           </div>
           <button class="secondary-button" id="refreshCalendar">Refresh NHL schedule</button>
         </div>
@@ -424,6 +432,24 @@
           <div class="roster-fit-list" id="rosterFitList"></div>
         </section>
 
+        <section class="panel calendar-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">KEEPER-BY-KEEPER PARTNERS</p><h2>Best bench-team matches for every team in your core</h2></div>
+            <span class="status-badge">Opposite-night lens</span>
+          </div>
+          <p class="calendar-explainer">For Carlsson and every other keeper, FDA ranks teams by how often they play while that keeper's NHL team is off. This is the direct bench-player pairing view.</p>
+          <div class="keeper-partner-grid" id="keeperPartnerGrid"><div class="calendar-loading">Keeper partner matches will appear after the schedule loads.</div></div>
+        </section>
+
+        <section class="panel calendar-section team-generator-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">REST-OF-ROSTER GENERATOR</p><h2>Which teams should fill every open slot?</h2></div>
+            <button class="primary-button" id="generateTeamPlans">Generate team plans</button>
+          </div>
+          <p class="calendar-explainer" id="teamPlanExplainer">FDA fills every remaining roster slot, then re-runs every night of the season. The result is a schedule-first team shopping list—not a claim that the example player is automatically the best value.</p>
+          <div class="team-plan-results" id="teamPlanResults"><div class="calendar-loading">Generate plans after the official schedule loads.</div></div>
+        </section>
+
         <section class="panel calendar-section calendar-board-section">
           <div class="section-heading">
             <div><p class="eyebrow">MONDAY-SUNDAY VIEW</p><h2 id="calendarBoardTitle">Selected-pair calendar</h2></div>
@@ -435,8 +461,8 @@
 
       <section class="page" id="page-draft">
         <div class="page-heading">
-          <div><p class="eyebrow">DRAFT ROOM</p><h1>Build around starts, value and roster fit</h1><p>Your roster is saved on this device while we shape the final league workflow.</p></div>
-          <button class="text-button danger" id="resetRoster">Reset roster</button>
+          <div><p class="eyebrow">DRAFT ROOM</p><h1>Build around starts, value and roster fit</h1><p>Your ten keepers and two protected minors are built in. Draft additions remain saved on this device.</p></div>
+          <button class="text-button danger" id="resetRoster">Restore keeper roster</button>
         </div>
 
         <section class="panel roster-summary">
@@ -449,7 +475,7 @@
 
         <div class="draft-layout">
           <section class="panel roster-board">
-            <div class="section-heading"><div><p class="eyebrow">PROJECTED ROSTER</p><h2>Your 23-player build</h2></div><span class="status-badge">Click a player to remove</span></div>
+            <div class="section-heading"><div><p class="eyebrow">PROJECTED ROSTER</p><h2>Your 23-player build</h2></div><span class="status-badge">Draft additions are removable</span></div>
             <div id="rosterSlots"></div>
           </section>
           <section class="panel assistant-card">

@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
-const SEASON = String(process.env.NHL_SEASON || '20252026');
+const HISTORY_DIR = path.join(DATA_DIR, 'fantasy-history');
+const HISTORY_CACHE_DIR = path.join(DATA_DIR, '.history-cache');
+const MAIN_SEASON = '20252026';
+const SEASON = String(process.env.NHL_SEASON || MAIN_SEASON);
 const NHL_WEB = 'https://api-web.nhle.com/v1';
 const NHL_STATS = 'https://api.nhle.com/stats/rest/en';
 const CONCURRENCY = Math.max(1, Math.min(16, Number(process.env.NHL_SYNC_CONCURRENCY || 8)));
@@ -387,8 +390,11 @@ function aggregate(cache, identities = new Map()) {
 
 async function main(){
   await fs.mkdir(DATA_DIR,{recursive:true});
-  const cacheFile=path.join(DATA_DIR,'game-contributions.json');
-  const playersFile=path.join(DATA_DIR,'players.json');
+  await fs.mkdir(HISTORY_DIR,{recursive:true});
+  await fs.mkdir(HISTORY_CACHE_DIR,{recursive:true});
+  const isMainSeason=SEASON===MAIN_SEASON;
+  const cacheFile=isMainSeason?path.join(DATA_DIR,'game-contributions.json'):path.join(HISTORY_CACHE_DIR,`game-contributions-${SEASON}.json`);
+  const playersFile=isMainSeason?path.join(DATA_DIR,'players.json'):path.join(HISTORY_DIR,`${SEASON}.json`);
   const cache=await readJson(cacheFile,{});
   const [games,identities]=await Promise.all([seasonGames(),playerIdentityMap()]);
   if(games.length < 100) throw new Error(`Only ${games.length} completed games were returned. Refusing to overwrite the existing database with an incomplete schedule.`);
@@ -403,9 +409,9 @@ async function main(){
   results.forEach((result,index)=>{if(result.status==='fulfilled')cache[result.value.gameId]=result.value;else failures.push({gameId:pending[index]?.id,error:result.reason?.message||String(result.reason)});});
   await writeJson(cacheFile,cache);
   const players=aggregate(cache,identities);
-  const payload={season:SEASON,metadata:{generatedAt:new Date().toISOString(),source:'Official NHL Gamecenter boxscore, play-by-play and landing endpoints',gamesAvailable:games.length,gamesProcessed:Object.keys(cache).length,newGamesProcessed:pending.length-failures.length,failedGames:failures.length,scoringVersion:'FDA Fantrax rules 2026-07-26'},players};
+  const payload={season:SEASON,metadata:{generatedAt:new Date().toISOString(),source:'Official NHL Gamecenter boxscore, play-by-play and landing endpoints',gamesAvailable:games.length,gamesProcessed:Object.keys(cache).length,newGamesProcessed:pending.length-failures.length,failedGames:failures.length,scoringVersion:'FDA Fantrax rules 2026-07-26',exactSpecialEventsIncluded:true,note:'Gamecenter sync includes first stars, fights, shootout goals, hat tricks and Gordie Howe hat tricks.'},players};
   await writeJson(playersFile,payload);
-  await writeJson(path.join(DATA_DIR,'last-sync.json'),{...payload.metadata,failures});
+  if(isMainSeason)await writeJson(path.join(DATA_DIR,'last-sync.json'),{...payload.metadata,failures});
   console.log(`Wrote ${players.length} exact player records from ${Object.keys(cache).length} games.`);
   if(failures.length) console.warn(`${failures.length} games failed and will retry next run.`);
 }

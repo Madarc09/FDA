@@ -40,6 +40,24 @@ const DEFAULT_RULES = {
   }
 };
 
+const ACTIVE_ROSTER_TARGETS = { F:12, D:8, G:3 };
+const NIGHTLY_LIMITS = { F:6, D:4, G:2 };
+const KEEPER_SEED_VERSION = '2026-07-28-v1';
+const KEEPER_SEED = [
+  { id:-9001, name:'Matvei Michkov', team:'PHI', position:'F' },
+  { id:-9002, name:'Leo Carlsson', team:'ANA', position:'F' },
+  { id:-9003, name:'Adam Fantilli', team:'CBJ', position:'F' },
+  { id:-9004, name:'Michael Misa', team:'SJS', position:'F' },
+  { id:-9005, name:'Sam Dickinson', team:'SJS', position:'D' },
+  { id:-9006, name:'Noah Dobson', team:'MTL', position:'D' },
+  { id:-9007, name:'Quinn Hughes', team:'MIN', position:'D' },
+  { id:-9008, name:'Charlie McAvoy', team:'BOS', position:'D' },
+  { id:-9009, name:'Yaroslav Askarov', team:'SJS', position:'G' },
+  { id:-9010, name:'Mackenzie Blackwood', team:'COL', position:'G' },
+  { id:-9011, name:'James Hagens', team:'BOS', position:'F', minor:true },
+  { id:-9012, name:'Ilya Protas', team:'WSH', position:'F', minor:true }
+];
+
 const state = {
   season: '20252026',
   players: [],
@@ -57,9 +75,9 @@ const state = {
   calendar: {
     season: '20262027', data: null, status: 'idle', error: '',
     window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score',
-    pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0
+    pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0, teamPlans: [], generatorStatus:'idle', generatorError:''
   },
-  history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map() },
+  history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map(), fantasySeason:'20252026', fantasyPosition:'ALL', fantasyStatus:'idle', fantasyError:'', fantasyCache:new Map() },
   route: 'dashboard'
 };
 
@@ -92,6 +110,53 @@ function loadRoster() {
 function saveRoster() { storage.setItem('fda-roster', JSON.stringify(state.roster)); }
 function saveRules() { storage.setItem('fda-scoring-rules', JSON.stringify(state.rules)); }
 
+function normalizedName(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,' '); }
+function rosterPlayers() { return state.roster.map(id=>state.players.find(player=>player.id===id)).filter(Boolean); }
+function activeRosterPlayers() { return rosterPlayers().filter(player=>!player.minorKeeper); }
+function minorRosterPlayers() { return rosterPlayers().filter(player=>player.minorKeeper); }
+function activeRosterCount() { return activeRosterPlayers().length; }
+function keeperIds() { return state.players.filter(player=>player.keeper).map(player=>player.id); }
+
+function ensureKeeperPlayers() {
+  const byName = new Map(state.players.map(player=>[normalizedName(player.name),player]));
+  for (const seed of KEEPER_SEED) {
+    const existing = byName.get(normalizedName(seed.name));
+    if (existing) {
+      existing.keeper = true;
+      existing.minorKeeper = Boolean(seed.minor);
+      existing.rosterRole = seed.minor ? 'minor' : 'keeper';
+      existing.team = existing.team && existing.team !== 'NHL' ? existing.team : seed.team;
+      existing.position = seed.position;
+      existing.playerType = seed.position === 'G' ? 'goalie' : 'skater';
+      continue;
+    }
+    const player = calculatePlayer({
+      ...seed,
+      playerType:seed.position==='G'?'goalie':'skater', gamesPlayed:0,
+      stats:blankPlayerStats(), currentRoster:true, dataQuality:'keeper-seed',
+      keeper:true, minorKeeper:Boolean(seed.minor), rosterRole:seed.minor?'minor':'keeper'
+    });
+    state.players.push(player);
+    byName.set(normalizedName(seed.name),player);
+  }
+}
+
+function seedKeeperRoster({ force=false } = {}) {
+  const version = storage.getItem('fda-keeper-seed-version');
+  const mandatory = keeperIds();
+  if (!force && version === KEEPER_SEED_VERSION && mandatory.every(id=>state.roster.includes(id))) return;
+  const validExisting = state.roster.filter(id=>state.players.some(player=>player.id===id && !player.keeper));
+  state.roster = [...new Set([...mandatory,...validExisting])];
+  storage.setItem('fda-keeper-seed-version',KEEPER_SEED_VERSION);
+  saveRoster();
+}
+
+function restoreKeeperRoster() {
+  state.roster = keeperIds();
+  storage.setItem('fda-keeper-seed-version',KEEPER_SEED_VERSION);
+  saveRoster();
+}
+
 function addDiagnostic(title, detail, status = 'ok', value = '') {
   state.diagnostics.push({ title, detail, status, value, time: new Date().toISOString() });
   renderDiagnostics();
@@ -119,6 +184,7 @@ function pick(row, keys, fallback = 0) {
 
 function headshotUrl(player) {
   if (player.headshot) return player.headshot;
+  if (number(player.id) < 0) return teamLogoUrl(player.team);
   return `${NHL_ASSETS}/mugs/nhl/${state.season}/${player.team}/${player.id}.png`;
 }
 
@@ -403,6 +469,8 @@ async function refreshAllData({ forceLive = false } = {}) {
       const directoryLoaded = await loadServerPlayerDirectory();
       if (!directoryLoaded) await loadLiveReports();
     }
+    ensureKeeperPlayers();
+    seedKeeperRoster();
     recalculateAll();
     setLiveStatus(state.dataMode === 'synced-unvalidated' ? 'error' : 'live', state.dataMode === 'exact' ? 'Exact game-event database loaded · Fantrax validation passed' : state.dataMode === 'synced-unvalidated' ? 'Game-event sync loaded · Fantrax validation needs review' : `Official NHL player directory loaded · ${state.players.length} players`);
   } catch (error) {
@@ -410,7 +478,9 @@ async function refreshAllData({ forceLive = false } = {}) {
     state.players = [];
     state.metadata = { generatedAt:new Date().toISOString(), source:'No complete source loaded' };
     addDiagnostic('Complete NHL import unavailable', error.message, 'error', 'No sample substitution');
-    setLiveStatus('error', 'Complete NHL directory unavailable · refresh after deployment');
+    setLiveStatus('error', 'Complete NHL directory unavailable · keeper roster remains available');
+    ensureKeeperPlayers();
+    seedKeeperRoster();
     recalculateAll();
   }
 }
@@ -726,24 +796,35 @@ async function loadSchedule(player) {
 }
 
 function renderDraft() {
-  state.roster=state.roster.filter(id=>state.players.some(p=>p.id===id)); saveRoster();
-  const rosterPlayers=state.roster.map(id=>state.players.find(p=>p.id===id)).filter(Boolean);
-  const counts={F:0,D:0,G:0}; rosterPlayers.forEach(p=>counts[positionGroup(p)]++);
-  $('#rosterCount').textContent=rosterPlayers.length; $('#rosterF').textContent=`${counts.F} / 12`; $('#rosterD').textContent=`${counts.D} / 8`; $('#rosterG').textContent=`${counts.G} / 3`; $('#rosterFpts').textContent=fmt(rosterPlayers.reduce((s,p)=>s+p.fantasyPoints,0),1);
-  const targets={F:12,D:8,G:3};
-  $('#rosterSlots').innerHTML=['F','D','G'].map(group=>{
-    const players=rosterPlayers.filter(p=>positionGroup(p)===group); const slots=Array.from({length:targets[group]},(_,i)=>players[i]);
-    return `<div class="roster-group"><div class="roster-group-title"><strong>${group==='F'?'Forwards':group==='D'?'Defence':'Goalies'}</strong><span>${players.length} / ${targets[group]}</span></div><div class="slot-grid">${slots.map(player=>player?`<div class="roster-slot filled"><img src="${headshotUrl(player)}" alt=""/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G</small></div><button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}"></button></div>`:`<div class="roster-slot empty">OPEN ${group}</div>`).join('')}</div></div>`;
+  state.roster=state.roster.filter(id=>state.players.some(player=>player.id===id));
+  seedKeeperRoster();
+  saveRoster();
+  const active=activeRosterPlayers();
+  const minors=minorRosterPlayers();
+  const counts={F:0,D:0,G:0}; active.forEach(player=>counts[positionGroup(player)]++);
+  $('#rosterCount').textContent=active.length;
+  $('#rosterF').textContent=`${counts.F} / ${ACTIVE_ROSTER_TARGETS.F}`;
+  $('#rosterD').textContent=`${counts.D} / ${ACTIVE_ROSTER_TARGETS.D}`;
+  $('#rosterG').textContent=`${counts.G} / ${ACTIVE_ROSTER_TARGETS.G}`;
+  $('#rosterFpts').textContent=fmt(active.reduce((sum,player)=>sum+player.fantasyPoints,0),1);
+
+  const mainGroups=['F','D','G'].map(group=>{
+    const players=active.filter(player=>positionGroup(player)===group);
+    const slots=Array.from({length:ACTIVE_ROSTER_TARGETS[group]},(_,index)=>players[index]);
+    return `<div class="roster-group"><div class="roster-group-title"><strong>${group==='F'?'Forwards':group==='D'?'Defence':'Goalies'}</strong><span>${players.length} / ${ACTIVE_ROSTER_TARGETS[group]}</span></div><div class="slot-grid">${slots.map(player=>player?`<div class="roster-slot filled ${player.keeper?'keeper-slot':''}"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G${player.keeper?' · KEEPER':''}</small></div>${player.keeper?'<span class="roster-lock">LOCKED</span>':`<button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}"></button>`}</div>`:`<div class="roster-slot empty">OPEN ${group}</div>`).join('')}</div></div>`;
   }).join('');
-  const available=state.players.filter(p=>!state.roster.includes(p.id)&&p.gamesPlayed>=10).slice(0,20);
-  $('#draftList').innerHTML=available.map(p=>`<div class="draft-row"><img src="${headshotUrl(p)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(p.name)}</strong><small>${p.team} · ${p.position} · ${p.gamesPlayed} GP</small></div><div class="draft-score"><b>${fmt(p.fpg,2)}</b><span>${fmt(p.fantasyPoints,1)} FPTS</span></div><button data-add-roster="${p.id}">ADD</button></div>`).join('');
+  const minorGroup=`<div class="roster-group minor-roster-group"><div class="roster-group-title"><strong>Minors</strong><span>${minors.length} protected · outside 23</span></div><div class="slot-grid minors-grid">${minors.map(player=>`<div class="roster-slot filled minor-slot"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · MINOR KEEPER</small></div><span class="roster-lock">MINORS</span></div>`).join('')||'<div class="roster-slot empty">NO MINORS</div>'}</div></div>`;
+  $('#rosterSlots').innerHTML=mainGroups+minorGroup;
+
+  const available=state.players.filter(player=>!state.roster.includes(player.id)&&!player.keeper&&player.gamesPlayed>=10).slice(0,20);
+  $('#draftList').innerHTML=available.map(player=>`<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${fmt(player.fantasyPoints,1)} FPTS</span></div><button data-add-roster="${player.id}">ADD</button></div>`).join('');
   renderAssistant();
 }
 
 function rosterNeed(position='AUTO') {
-  const limits={F:12,D:8,G:3}; const counts={F:0,D:0,G:0}; state.roster.map(id=>state.players.find(p=>p.id===id)).filter(Boolean).forEach(p=>counts[positionGroup(p)]++);
+  const counts={F:0,D:0,G:0}; activeRosterPlayers().forEach(player=>counts[positionGroup(player)]++);
   if(position!=='AUTO') return position;
-  return Object.keys(limits).sort((a,b)=>(counts[a]/limits[a])-(counts[b]/limits[b]))[0];
+  return Object.keys(ACTIVE_ROSTER_TARGETS).sort((a,b)=>(counts[a]/ACTIVE_ROSTER_TARGETS[a])-(counts[b]/ACTIVE_ROSTER_TARGETS[b]))[0];
 }
 
 function findRecommendation() {
@@ -947,7 +1028,7 @@ async function loadCalendarDirectFromNHL() {
 
 async function loadCalendarData({ force=false, direct=false }={}) {
   if(state.calendar.status==='loading')return;
-  state.calendar.status='loading'; state.calendar.error=''; renderCalendar();
+  state.calendar.status='loading'; state.calendar.error=''; invalidateTeamPlans(); renderCalendar();
   try {
     let payload=null;
     if(direct){ payload=await loadCalendarDirectFromNHL(); }
@@ -1030,35 +1111,183 @@ function renderTeamProfiles() {
   $('#teamScheduleProfiles').innerHTML=profiles.map(profile=>`<article class="team-profile-row"><img src="${teamLogoUrl(profile.team)}" alt=""/><div><strong>${profile.team}</strong><small>Best partner: ${profile.best} (${fmt(profile.score,1)})</small></div><span><b>${profile.off}</b> off-night</span><span><b>${profile.busy}</b> busy</span><span><b>${profile.b2b}</b> B2B</span></article>`).join('');
 }
 
-function rosterDateLoads(range) {
-  const loads={};
-  for(const id of state.roster){
-    const player=state.players.find(row=>row.id===id); if(!player)continue;
-    const group=positionGroup(player);
-    for(const date of teamDatesForWindow(player.team,range)){
-      loads[date] ||= {F:0,D:0,G:0,total:0}; loads[date][group]+=1; loads[date].total+=1;
+function playerLineupRating(player) {
+  const fpg=number(player.fpg);
+  if(fpg>0)return fpg;
+  return positionGroup(player)==='G' ? .01 : .005;
+}
+
+function simulateBestLineup(players, range) {
+  const leagueCounts=leagueCountsForRange(range);
+  const dateSets=new Map();
+  const datesFor=team=>{
+    if(!dateSets.has(team))dateSets.set(team,new Set(teamDatesForWindow(team,range)));
+    return dateSets.get(team);
+  };
+  const contributions=new Map(players.map(player=>[player.id,{dressed:0,benched:0,offNight:0,projectedFantasy:0}]));
+  let totalUsable=0,totalPossible=0,benchStarts=0,offNightStarts=0,projectedFantasy=0;
+  const dates=Object.keys(leagueCounts).sort();
+  for(const date of dates){
+    for(const group of ['F','D','G']){
+      const playing=players.filter(player=>positionGroup(player)===group&&datesFor(player.team).has(date)).sort((a,b)=>playerLineupRating(b)-playerLineupRating(a)||number(b.gamesPlayed)-number(a.gamesPlayed));
+      totalPossible+=playing.length;
+      const dressed=playing.slice(0,NIGHTLY_LIMITS[group]);
+      const benched=playing.slice(NIGHTLY_LIMITS[group]);
+      totalUsable+=dressed.length;
+      benchStarts+=benched.length;
+      for(const player of dressed){
+        const row=contributions.get(player.id); if(!row)continue;
+        row.dressed+=1; row.projectedFantasy+=number(player.fpg);
+        projectedFantasy+=number(player.fpg);
+        if(number(leagueCounts[date])<=state.calendar.threshold){row.offNight+=1;offNightStarts+=1;}
+      }
+      for(const player of benched){const row=contributions.get(player.id);if(row)row.benched+=1;}
     }
   }
-  return loads;
+  return {totalUsable,totalPossible,benchStarts,offNightStarts,projectedFantasy:round(projectedFantasy,1),contributions};
+}
+
+function availableCalendarCandidates(position, excludedIds=new Set()) {
+  return state.players
+    .filter(player=>positionGroup(player)===position&&!player.keeper&&!state.roster.includes(player.id)&&!excludedIds.has(player.id)&&player.team&&state.calendar.data?.teams?.[player.team])
+    .filter(player=>player.gamesPlayed>=5||player.currentRoster)
+    .sort((a,b)=>b.fpg-a.fpg||b.gamesPlayed-a.gamesPlayed);
+}
+
+function calendarCandidateShortlist(position, excludedIds=new Set()) {
+  const seenTeams=new Set();
+  return availableCalendarCandidates(position,excludedIds).filter(player=>{
+    if(seenTeams.has(player.team))return false;
+    seenTeams.add(player.team);
+    return true;
+  });
+}
+
+function bestCandidateForTeam(team, position, excludedIds=new Set()) {
+  return availableCalendarCandidates(position,excludedIds).find(player=>player.team===team)||null;
+}
+
+function invalidateTeamPlans() {
+  state.calendar.teamPlans=[];
+  state.calendar.generatorStatus='idle';
+  state.calendar.generatorError='';
 }
 
 function renderRosterFit() {
   const list=$('#rosterFitList'), summary=$('#rosterFitSummary');
-  if(!state.roster.length){summary.textContent='Add players in the Draft Room to make this analysis roster-aware.';list.innerHTML='';return;}
-  const position=$('#rosterFitPosition').value; const limit={F:6,D:4,G:2}[position]; const range=calendarRange(); const leagueCounts=leagueCountsForRange(range); const loads=rosterDateLoads(range);
-  const ownedTeams=new Set(state.roster.map(id=>state.players.find(player=>player.id===id)?.team).filter(Boolean));
-  const rows=Object.keys(state.calendar.data.teams).filter(team=>!ownedTeams.has(team)).map(team=>{
-    let usable=0,bench=0,off=0,newCoverage=0;
-    for(const date of teamDatesForWindow(team,range)){
-      const load=loads[date]||{F:0,D:0,G:0,total:0};
-      if(load[position]<limit){usable+=1;if(number(leagueCounts[date])<=state.calendar.threshold)off+=1;if(load.total===0)newCoverage+=1;}else bench+=1;
+  const active=activeRosterPlayers();
+  if(!active.length){summary.textContent='Your keeper roster has not loaded yet.';list.innerHTML='';return;}
+  const position=$('#rosterFitPosition').value;
+  const range=calendarRange();
+  const baseline=simulateBestLineup(active,range);
+  const rows=Object.keys(state.calendar.data.teams).map(team=>{
+    const player=bestCandidateForTeam(team,position);
+    if(!player)return null;
+    const result=simulateBestLineup([...active,player],range);
+    const contribution=result.contributions.get(player.id)||{dressed:0,benched:0,offNight:0};
+    return {team,player,dressed:contribution.dressed,bench:contribution.benched,off:contribution.offNight,incremental:result.totalUsable-baseline.totalUsable,projected:result.projectedFantasy-baseline.projectedFantasy};
+  }).filter(Boolean).sort((a,b)=>b.incremental-a.incremental||b.dressed-a.dressed||b.off-a.off||b.player.fpg-a.player.fpg).slice(0,12);
+  summary.innerHTML=`Your <strong>${active.length}-player active roster</strong> currently produces ${baseline.totalUsable} dressable player-games in this window when FDA always starts the best ${NIGHTLY_LIMITS.F} forwards, ${NIGHTLY_LIMITS.D} defencemen and ${NIGHTLY_LIMITS.G} goalies. These teams show the best next ${position==='F'?'forward':position==='D'?'defence':'goalie'} calendar additions.`;
+  list.innerHTML=rows.map((row,index)=>`<article class="roster-fit-row"><span class="rank">${index+1}</span><img class="team-logo-large" src="${teamLogoUrl(row.team)}" alt=""/><div><strong>${row.team} · ${safeText(row.player.name)}</strong><small>${fmt(row.player.fpg,2)} FP/G example · +${row.incremental} total dressed starts</small></div><span><b>${row.dressed}</b> dressed</span><span><b>${row.off}</b> off-night</span><span class="${row.bench?'warning':''}"><b>${row.bench}</b> benched</span></article>`).join('');
+}
+
+function keeperPartnerRows() {
+  const range=calendarRange();
+  const leagueCounts=leagueCountsForRange(range);
+  const grouped=new Map();
+  for(const player of activeRosterPlayers()){
+    if(!grouped.has(player.team))grouped.set(player.team,[]);
+    grouped.get(player.team).push(player);
+  }
+  return [...grouped.entries()].map(([team,players])=>{
+    const home=new Set(teamDatesForWindow(team,range));
+    const partners=Object.keys(state.calendar.data.teams).filter(other=>other!==team).map(other=>{
+      const dates=teamDatesForWindow(other,range);
+      const opposite=dates.filter(date=>!home.has(date)).length;
+      const overlap=dates.filter(date=>home.has(date)).length;
+      const sparseOpposite=dates.filter(date=>!home.has(date)&&number(leagueCounts[date])<=state.calendar.threshold).length;
+      return {team:other,opposite,overlap,sparseOpposite,score:opposite*2+sparseOpposite*.75-overlap*.45};
+    }).sort((a,b)=>b.score-a.score||b.opposite-a.opposite).slice(0,3);
+    return {team,players,partners};
+  }).sort((a,b)=>a.team.localeCompare(b.team));
+}
+
+function renderKeeperPartners() {
+  const container=$('#keeperPartnerGrid'); if(!container)return;
+  const rows=keeperPartnerRows();
+  container.innerHTML=rows.map(row=>`<article class="keeper-partner-card"><header><span class="keeper-team"><img src="${teamLogoUrl(row.team)}" alt=""/><span><strong>${row.team}</strong><small>${row.players.map(player=>safeText(player.name)).join(' · ')}</small></span></span></header><div>${row.partners.map((partner,index)=>`<span class="partner-rank"><b>${index+1}. ${partner.team}</b><small>${partner.opposite} games while ${row.team} is off · ${partner.overlap} conflicts</small></span>`).join('')}</div></article>`).join('');
+}
+
+function planObjective(result,baseline,strategy,playoffResult=null,playoffBaseline=null) {
+  const delta=result.totalUsable-baseline.totalUsable;
+  const benchDelta=result.benchStarts-baseline.benchStarts;
+  const offDelta=result.offNightStarts-baseline.offNightStarts;
+  if(strategy==='OFF_NIGHTS')return delta*100+offDelta*12-benchDelta*18+result.projectedFantasy*.001;
+  if(strategy==='PLAYOFFS'){
+    const playoffDelta=(playoffResult?.totalUsable||0)-(playoffBaseline?.totalUsable||0);
+    const playoffBench=(playoffResult?.benchStarts||0)-(playoffBaseline?.benchStarts||0);
+    return delta*35+playoffDelta*120-offDelta*.2-playoffBench*20+result.projectedFantasy*.001;
+  }
+  return delta*100+offDelta*3-benchDelta*22+result.projectedFantasy*.001;
+}
+
+function buildOneTeamPlan(strategy) {
+  const fullRange=calendarRange();
+  const playoffRange=calendarRange('PLAYOFFS');
+  const current=[...activeRosterPlayers()];
+  const need={F:ACTIVE_ROSTER_TARGETS.F-current.filter(player=>positionGroup(player)==='F').length,D:ACTIVE_ROSTER_TARGETS.D-current.filter(player=>positionGroup(player)==='D').length,G:ACTIVE_ROSTER_TARGETS.G-current.filter(player=>positionGroup(player)==='G').length};
+  const selected=[]; const excluded=new Set(current.map(player=>player.id));
+  while(Object.values(need).some(value=>value>0)){
+    const baseline=simulateBestLineup(current,fullRange);
+    const playoffBaseline=strategy==='PLAYOFFS'?simulateBestLineup(current,playoffRange):null;
+    let best=null;
+    for(const position of ['F','D','G']){
+      if(need[position]<=0)continue;
+      for(const candidate of calendarCandidateShortlist(position,excluded)){
+        const result=simulateBestLineup([...current,candidate],fullRange);
+        const playoffResult=strategy==='PLAYOFFS'?simulateBestLineup([...current,candidate],playoffRange):null;
+        const score=planObjective(result,baseline,strategy,playoffResult,playoffBaseline);
+        if(!best||score>best.score)best={candidate,result,playoffResult,score,baseline,playoffBaseline};
+      }
     }
-    const player=calendarTopPlayer(team,position);
-    const score=usable*2+off*1.3+newCoverage*.7-bench*2.5;
-    return {team,usable,bench,off,newCoverage,score,player};
-  }).sort((a,b)=>b.score-a.score||b.usable-a.usable).slice(0,12);
-  summary.innerHTML=`Your ${state.roster.length}-player roster is being checked against the ${range.start} to ${range.end} schedule window. FDA is looking for a <strong>${position==='F'?'forward':position==='D'?'defenceman':'goalie'}</strong> whose team creates starts below the nightly limit of ${limit}.`;
-  list.innerHTML=rows.map((row,index)=>`<article class="roster-fit-row"><span class="rank">${index+1}</span><img class="team-logo-large" src="${teamLogoUrl(row.team)}" alt=""/><div><strong>${row.team}${row.player?` · ${safeText(row.player.name)}`:''}</strong><small>${row.player?`${fmt(row.player.fpg,2)} FP/G · `:''}${row.newCoverage} completely new roster dates</small></div><span><b>${row.usable}</b> usable</span><span><b>${row.off}</b> off-night</span><span class="${row.bench?'warning':''}"><b>${row.bench}</b> bench risk</span></article>`).join('');
+    if(!best)break;
+    current.push(best.candidate); excluded.add(best.candidate.id); need[positionGroup(best.candidate)]-=1;
+    const contribution=best.result.contributions.get(best.candidate.id)||{dressed:0,benched:0,offNight:0};
+    selected.push({player:best.candidate,...contribution,incremental:best.result.totalUsable-best.baseline.totalUsable});
+  }
+  const finalResult=simulateBestLineup(current,fullRange);
+  const initialResult=simulateBestLineup(activeRosterPlayers(),fullRange);
+  const finalSelected=selected.map(row=>({...row,...(finalResult.contributions.get(row.player.id)||{dressed:0,benched:0,offNight:0})}));
+  return {strategy,selected:finalSelected,totalUsable:finalResult.totalUsable,addedUsable:finalResult.totalUsable-initialResult.totalUsable,benchStarts:finalResult.benchStarts,projectedFantasy:finalResult.projectedFantasy};
+}
+
+function generateTeamPlans() {
+  state.calendar.generatorStatus='loading'; state.calendar.generatorError=''; renderTeamPlans();
+  setTimeout(()=>{
+    try{
+      state.calendar.teamPlans=['MAX_STARTS','OFF_NIGHTS','PLAYOFFS'].map(buildOneTeamPlan);
+      state.calendar.generatorStatus='ready';
+    }catch(error){state.calendar.generatorStatus='error';state.calendar.generatorError=error.message;}
+    renderTeamPlans();
+  },20);
+}
+
+function renderTeamPlans() {
+  const container=$('#teamPlanResults'); if(!container)return;
+  const button=$('#generateTeamPlans');
+  if(button){button.disabled=state.calendar.generatorStatus==='loading';button.textContent=state.calendar.generatorStatus==='loading'?'Simulating…':'Generate team plans';}
+  const counts={F:0,D:0,G:0}; activeRosterPlayers().forEach(player=>counts[positionGroup(player)]++);
+  const needs={F:Math.max(0,ACTIVE_ROSTER_TARGETS.F-counts.F),D:Math.max(0,ACTIVE_ROSTER_TARGETS.D-counts.D),G:Math.max(0,ACTIVE_ROSTER_TARGETS.G-counts.G)};
+  const explainer=$('#teamPlanExplainer'); if(explainer)explainer.textContent=`FDA fills your remaining ${needs.F} forward, ${needs.D} defence and ${needs.G} goalie slots, then re-runs every night of the season. The result is a schedule-first team shopping list—not a claim that the example player is automatically the best value.`;
+  if(state.calendar.generatorStatus==='loading'){container.innerHTML='<div class="calendar-loading">Simulating every open roster slot against the nightly lineup limits…</div>';return;}
+  if(state.calendar.generatorStatus==='error'){container.innerHTML=`<div class="history-error">${safeText(state.calendar.generatorError)}</div>`;return;}
+  if(!state.calendar.teamPlans.length){container.innerHTML='<div class="calendar-loading">Generate plans after the official schedule loads. FDA will return three complete team maps for your remaining roster slots.</div>';return;}
+  const labels={MAX_STARTS:['Maximum starts','Pure season-long dressed-game volume'],OFF_NIGHTS:['Off-night bench','Extra weight on nights when the NHL slate is lighter'],PLAYOFFS:['Playoff finish','Extra weight on the final four fantasy weeks']};
+  container.innerHTML=state.calendar.teamPlans.map(plan=>{
+    const teamCounts={}; plan.selected.forEach(row=>{teamCounts[row.player.team]=(teamCounts[row.player.team]||0)+1;});
+    const teams=Object.entries(teamCounts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+    return `<article class="team-plan-card"><header><div><p class="eyebrow">${labels[plan.strategy][0].toUpperCase()}</p><h3>${labels[plan.strategy][0]}</h3><small>${labels[plan.strategy][1]}</small></div><strong>+${plan.addedUsable}<small>dressed starts</small></strong></header><div class="team-plan-summary">${teams.map(([team,count])=>`<span><img src="${teamLogoUrl(team)}" alt=""/><b>${team}${count>1?` ×${count}`:''}</b></span>`).join('')}</div><div class="team-plan-picks">${plan.selected.map((row,index)=>`<span><b>${index+1}. ${positionGroup(row.player)} · ${row.player.team}</b><small>${safeText(row.player.name)} example · ${row.dressed} dressed / ${row.benched} bench</small></span>`).join('')}</div><footer>${plan.totalUsable} total dressed player-games · ${plan.benchStarts} unavoidable bench games</footer></article>`;
+  }).join('');
 }
 
 function calendarWeeks(range) {
@@ -1095,7 +1324,7 @@ function renderCalendar() {
   $('#calendarSparseLabel').textContent=`${state.calendar.threshold} games or fewer`;
   if(state.calendar.status==='loading'){
     source.textContent='Loading all 32 official NHL team schedules and deduplicating games...';
-    ['#bestPairSpotlight','#worstPairSpotlight','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
+    ['#bestPairSpotlight','#worstPairSpotlight','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#keeperPartnerGrid','#teamPlanResults','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
     return;
   }
   if(!calendarDatasetValid(state.calendar.data)){
@@ -1111,7 +1340,7 @@ function renderCalendar() {
   populateCalendarTeamFilter();
   const best=sortedCalendarPairs()[0]||state.calendar.pairs[0], worst=[...state.calendar.pairs].sort((a,b)=>a.score-b.score)[0];
   renderPairSpotlight($('#bestPairSpotlight'),best,'BEST TWO-TEAM FIT'); renderPairSpotlight($('#worstPairSpotlight'),worst,'WORST TWO-TEAM FIT');
-  renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderWeeklyCalendar();
+  renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderKeeperPartners(); renderTeamPlans(); renderWeeklyCalendar();
 }
 
 
@@ -1192,9 +1421,90 @@ function renderHistoryMiniList(target, rows, key) {
   }).join('') || '<div class="calendar-loading">No records returned.</div>';
 }
 
+function fantasySeasonLabel(season) {
+  const raw=String(season||'');
+  return raw.length===8?`${raw.slice(0,4)}-${raw.slice(6)}`:raw;
+}
+
+function fantasyHistoryEntry() {
+  return state.history.fantasyCache.get(state.history.fantasySeason)||null;
+}
+
+function fantasyMinimumGames(player) { return positionGroup(player)==='G'?5:10; }
+
+function renderFantasyHistory() {
+  const source=$('#historySource'), status=$('#historyStatus'), updated=$('#historyUpdated');
+  const entry=fantasyHistoryEntry();
+  $('#fantasyHistoryControls').hidden=false;
+  $('#historySecondaryGrid').hidden=true;
+  $('#historyRecords').hidden=false;
+  $('#fantasyHistorySeason').value=state.history.fantasySeason;
+  $('#fantasyHistoryPosition').value=state.history.fantasyPosition;
+  $('#historyTableEyebrow').textContent='YOUR FANTRAX SCORING';
+  $('#historyTableTitle').textContent=`${fantasySeasonLabel(state.history.fantasySeason)} fantasy FPG leaders`;
+  $('#historyTableDescription').textContent='Season-by-season rankings calculated with the scoring settings currently saved in FDA.';
+  if(state.history.fantasyStatus==='loading'){
+    source.textContent=`Loading ${fantasySeasonLabel(state.history.fantasySeason)} official season reports…`;
+    updated.textContent='Calculating every returned player with your current scoring rules.';
+    status.textContent='Loading'; status.className='status-badge';
+    $('#historyLeaderList').innerHTML='<div class="calendar-loading">Building the fantasy leaderboard…</div>';
+    $('#historyRecords').innerHTML='';
+    return;
+  }
+  if(state.history.fantasyStatus==='error'){
+    source.textContent='Fantasy season data could not be loaded.';
+    updated.textContent=state.history.fantasyError;
+    status.textContent='Unavailable'; status.className='status-badge';
+    $('#historyLeaderList').innerHTML=`<div class="history-error">${safeText(state.history.fantasyError)}</div>`;
+    $('#historyRecords').innerHTML='';
+    return;
+  }
+  if(!entry){
+    source.textContent='Choose a season to build its fantasy leaderboard.';
+    updated.textContent='Official NHL season reports are requested only when needed.';
+    status.textContent='Waiting'; status.className='status-badge';
+    $('#historyLeaderList').innerHTML='<div class="calendar-loading">Select Fantasy FPG to load this season.</div>';
+    $('#historyRecords').innerHTML='';
+    return;
+  }
+  const exact=Boolean(entry.exact);
+  const coverage=exact
+    ? 'Exact mode: Gamecenter first-star, fight, shootout and hat-trick events are included.'
+    : 'Tracked mode: official season-report categories are included; first-star and Gordie Howe bonuses are marked unavailable rather than counted as zero.';
+  $('#fantasyHistoryCoverage').textContent=coverage;
+  source.textContent=entry.source||'Official NHL season reports';
+  updated.textContent=`Calculated ${new Date(entry.generatedAt).toLocaleString('en-US')} · ${entry.players.length} players`;
+  status.textContent=exact?'Exact FPG':'Tracked FPG'; status.className='status-badge';
+  let players=entry.players.filter(player=>player.gamesPlayed>=fantasyMinimumGames(player));
+  if(state.history.fantasyPosition!=='ALL')players=players.filter(player=>positionGroup(player)===state.history.fantasyPosition);
+  players.sort((a,b)=>b.fpg-a.fpg||b.fantasyPoints-a.fantasyPoints||b.gamesPlayed-a.gamesPlayed);
+  const totalLeaders=[...entry.players].filter(player=>player.gamesPlayed>=fantasyMinimumGames(player)).sort((a,b)=>b.fantasyPoints-a.fantasyPoints);
+  const forward=players.find(player=>positionGroup(player)==='F')||entry.players.filter(player=>positionGroup(player)==='F'&&player.gamesPlayed>=10).sort((a,b)=>b.fpg-a.fpg)[0];
+  const defence=players.find(player=>positionGroup(player)==='D')||entry.players.filter(player=>positionGroup(player)==='D'&&player.gamesPlayed>=10).sort((a,b)=>b.fpg-a.fpg)[0];
+  const goalie=players.find(player=>positionGroup(player)==='G')||entry.players.filter(player=>positionGroup(player)==='G'&&player.gamesPlayed>=5).sort((a,b)=>b.fpg-a.fpg)[0];
+  const top=players[0];
+  const fantasyCard=(label,player,value,label2)=>`<article class="panel history-record-card"><span>${safeText(label)}</span><strong>${player?historyNumber(value(player),2):'—'}</strong><small>${player?safeText(`${player.name} · ${player.team} · ${label2}`):'No eligible player'}</small>${player?`<img src="${safeText(headshotUrl(player))}" alt="" onerror="this.style.display='none'"/>`:''}</article>`;
+  $('#historyRecords').innerHTML=[
+    fantasyCard('Overall FPG',top,p=>p.fpg,'FP/G'),
+    fantasyCard('Forward FPG',forward,p=>p.fpg,'FP/G'),
+    fantasyCard('Defence FPG',defence,p=>p.fpg,'FP/G'),
+    fantasyCard('Goalie FPG',goalie,p=>p.fpg,'FP/G')
+  ].join('');
+  $('#historyTableHead').innerHTML='<span>Player</span><span>GP</span><span>FPTS</span><span>FPG</span><span>1st stars</span><span>Coverage</span>';
+  $('#historyLeaderList').innerHTML=players.slice(0,60).map((player,index)=>{
+    const stars=exact?historyNumber(player.stats?.firstStars):'—';
+    return `<article class="history-row fantasy-history-row"><span class="history-rank">${index+1}</span><img src="${safeText(headshotUrl(player))}" alt="" onerror="this.style.opacity=.08"/><span class="history-player-copy"><strong>${safeText(player.name)}</strong><small>${safeText(player.team)} · ${safeText(positionGroup(player))} · minimum ${fantasyMinimumGames(player)} GP</small></span><span class="history-row-stats"><span><b>${historyNumber(player.gamesPlayed)}</b><small>GP</small></span><span><b>${historyNumber(player.fantasyPoints,1)}</b><small>FPTS</small></span><span><b>${historyNumber(player.fpg,2)}</b><small>FPG</small></span><span><b>${stars}</b><small>1★</small></span><span><b>${exact?'Exact':'Tracked'}</b><small>mode</small></span></span><span class="history-primary-stat"><strong>${historyNumber(player.fpg,2)}</strong><small>FPG</small></span></article>`;
+  }).join('')||'<div class="history-error">No players met the minimum-games filter for this position.</div>';
+}
+
 function renderHistory() {
   const source = $('#historySource');
   if (!source) return;
+  $$('.history-tab').forEach(button=>button.classList.toggle('active',button.dataset.historyTab===state.history.tab));
+  if(state.history.tab==='fantasy'){renderFantasyHistory();return;}
+  $('#fantasyHistoryControls').hidden=true;
+  $('#historySecondaryGrid').hidden=false;
+  $('#historyRecords').hidden=false;
   const status = $('#historyStatus');
   const updated = $('#historyUpdated');
   if (state.history.status === 'loading') {
@@ -1225,7 +1535,6 @@ function renderHistory() {
     historyRecordCard('Single-season points',records.seasonPoints,'points'),
     historyRecordCard('Goalie wins',records.goalieWins,'wins')
   ].join('');
-  $$('.history-tab').forEach(button=>button.classList.toggle('active',button.dataset.historyTab===state.history.tab));
   const config = historyTabConfig();
   $('#historyTableEyebrow').textContent = config.eyebrow;
   $('#historyTableTitle').textContent = config.title;
@@ -1237,6 +1546,46 @@ function renderHistory() {
   renderHistoryTable(config.main,config.type);
   renderHistoryMiniList($('#historySideOne'),config.sideOne,config.sideOneKey);
   renderHistoryMiniList($('#historySideTwo'),config.sideTwo,config.sideTwoKey);
+}
+
+async function loadHistoricalFantasySeason({ force=false }={}) {
+  const season=state.history.fantasySeason;
+  if(state.history.fantasyStatus==='loading')return;
+  if(state.history.fantasyCache.has(season)&&!force){state.history.fantasyStatus='ready';renderHistory();return;}
+  state.history.fantasyStatus='loading'; state.history.fantasyError=''; renderHistory();
+  try{
+    let payload=null, exact=false;
+    for(const path of [`data/fantasy-history/${season}.json`,`data/players.json`]){
+      if(payload)break;
+      try{
+        const cachedResponse=await fetch(`${path}?t=${Date.now()}`,{cache:'no-store'});
+        if(cachedResponse.ok){
+          const cached=await cachedResponse.json();
+          if(String(cached.season)===season&&Array.isArray(cached.players)&&cached.players.length>=250){
+            payload=cached;
+            exact=Boolean(cached.metadata?.exactSpecialEventsIncluded)||String(cached.metadata?.source||'').toLowerCase().includes('gamecenter');
+          }
+        }
+      }catch{}
+    }
+    if(!payload){
+      const response=await fetch(`/api/players?season=${encodeURIComponent(season)}&t=${Date.now()}`,{cache:'no-store'});
+      const body=await response.json();
+      if(!response.ok)throw new Error(body.error||`${response.status} ${response.statusText}`);
+      payload=body;
+      exact=Boolean(body.metadata?.exactSpecialEventsIncluded);
+    }
+    if(payload.season&&String(payload.season)!==season)throw new Error(`The player route returned ${fantasySeasonLabel(payload.season)} instead of ${fantasySeasonLabel(season)}.`);
+    if(!Array.isArray(payload.players)||payload.players.length<250)throw new Error(`Only ${payload.players?.length||0} player records were returned for ${fantasySeasonLabel(season)}.`);
+    const players=payload.players.map(normalizeSyncedPlayer).filter(player=>player.gamesPlayed>0);
+    state.history.fantasyCache.set(season,{season,players,exact,source:payload.metadata?.source||payload.source||'Official NHL season reports',generatedAt:payload.generatedAt||payload.metadata?.generatedAt||new Date().toISOString(),note:payload.metadata?.note||''});
+    state.history.fantasyStatus='ready';
+    addDiagnostic(`${fantasySeasonLabel(season)} fantasy leaderboard`,`${players.length} players calculated with the current FDA scoring rules. ${exact?'Gamecenter event bonuses included.':'Report-only special-event gaps are labelled.'}`,'ok',exact?'Exact FPG':'Tracked FPG');
+  }catch(error){
+    state.history.fantasyStatus='error'; state.history.fantasyError=error.message;
+    addDiagnostic('Fantasy history',error.message,'warn','Unavailable');
+  }
+  renderHistory();
 }
 
 async function loadHistoricalData({ force = false } = {}) {
@@ -1303,7 +1652,7 @@ function navigate(route) {
   $$('.page').forEach(page=>page.classList.toggle('active',page.id===`page-${route}`));
   $$('[data-route]').forEach(button=>button.classList.toggle('active',button.dataset.route===route&&(button.classList.contains('nav-link')||button.classList.contains('mobile-link'))));
   window.scrollTo({top:0,behavior:'smooth'});
-  if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();} if(route==='history'){renderHistory();if(state.history.status==='idle')loadHistoricalData();}
+  if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();} if(route==='history'){renderHistory();if(state.history.tab==='fantasy')loadHistoricalFantasySeason();else if(state.history.status==='idle')loadHistoricalData();}
 }
 
 function openPlayer(id) { state.selectedPlayerId=number(id); navigate('lab'); renderLab(); }
@@ -1314,9 +1663,9 @@ function bindEvents() {
     const route=event.target.closest('[data-route]')?.dataset.route; if(route)navigate(route);
     const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId)openPlayer(playerId);
     const historyPlayerId=event.target.closest('[data-history-player]')?.dataset.historyPlayer; if(historyPlayerId)openHistoricalPlayer(historyPlayerId);
-    const historyTab=event.target.closest('[data-history-tab]')?.dataset.historyTab; if(historyTab){state.history.tab=historyTab;renderHistory();}
-    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(state.roster.length>=23)return showDialog('Roster full','<p>The current roster plan contains 23 players. Remove one before adding another.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));saveRoster();renderDraft();renderCalendar(); }
-    const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){state.roster=state.roster.filter(id=>id!==number(removeId));saveRoster();renderDraft();renderCalendar();}
+    const historyTab=event.target.closest('[data-history-tab]')?.dataset.historyTab; if(historyTab){state.history.tab=historyTab;renderHistory();if(historyTab==='fantasy')loadHistoricalFantasySeason();else if(state.history.status==='idle')loadHistoricalData();}
+    const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(activeRosterCount()>=23)return showDialog('Roster full','<p>The active roster already contains 23 players. Protected minors do not count toward that limit.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar(); }
+    const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){const player=state.players.find(item=>item.id===number(removeId));if(player?.keeper)return;state.roster=state.roster.filter(id=>id!==number(removeId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar();}
     const calendarPair=event.target.closest('[data-calendar-pair]')?.dataset.calendarPair; if(calendarPair){state.calendar.selectedPair=calendarPair.split('-');state.calendar.weekIndex=0;renderCalendar();document.querySelector('.calendar-board-section')?.scrollIntoView({behavior:'smooth',block:'start'});}
   });
   $('#refreshData').addEventListener('click',()=>refreshAllData({forceLive:true}));
@@ -1331,20 +1680,23 @@ function bindEvents() {
   $('#loadEdgeData').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadEdgeDataForPlayer(player);});
   $('#runAssistant').addEventListener('click',()=>renderAssistant(findRecommendation()));
   $('#refreshCalendar').addEventListener('click',()=>loadCalendarData({force:true}));
-  $('#refreshHistory').addEventListener('click',()=>loadHistoricalData({force:true}));
+  $('#refreshHistory').addEventListener('click',()=>state.history.tab==='fantasy'?loadHistoricalFantasySeason({force:true}):loadHistoricalData({force:true}));
   $('#directCalendarLoad').addEventListener('click',()=>loadCalendarData({force:true,direct:true}));
   $('#calendarSeason').addEventListener('change',event=>{state.calendar.season=event.target.value;state.calendar.data=null;state.calendar.status='idle';state.calendar.visiblePairs=30;loadCalendarData({force:true});});
-  $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;recalculateCalendarAnalysis();renderCalendar();});
-  $('#offNightThreshold').addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);state.calendar.visiblePairs=30;recalculateCalendarAnalysis();renderCalendar();});
+  $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
+  $('#offNightThreshold').addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
   $('#calendarTeam').addEventListener('change',event=>{state.calendar.focusTeam=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
   $('#pairSort').addEventListener('change',event=>{state.calendar.sort=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
   $('#loadMorePairs').addEventListener('click',()=>{state.calendar.visiblePairs+=30;renderPairRankings();});
   $('#rosterFitPosition').addEventListener('change',()=>renderRosterFit());
+  $('#generateTeamPlans').addEventListener('click',()=>{if(!calendarDatasetValid(state.calendar.data))return showDialog('Schedule required','<p>Load the official NHL schedule before generating roster plans.</p>');generateTeamPlans();});
   $('#calendarPrevWeek').addEventListener('click',()=>{state.calendar.weekIndex=Math.max(0,state.calendar.weekIndex-1);renderWeeklyCalendar();});
   $('#calendarNextWeek').addEventListener('click',()=>{state.calendar.weekIndex+=1;renderWeeklyCalendar();});
-  $('#resetRoster').addEventListener('click',()=>{state.roster=[];saveRoster();renderDraft();renderCalendar();});
-  $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();recalculateAll();});
-  document.addEventListener('input',event=>{const input=event.target.closest('[data-rule-key]');if(!input)return;state.rules[input.dataset.ruleType][input.dataset.ruleKey].value=number(input.value);saveRules();state.players=state.players.map(calculatePlayer);renderDashboard();applyPlayerFilters();renderLab();renderDraft();});
+  $('#resetRoster').addEventListener('click',()=>{restoreKeeperRoster();invalidateTeamPlans();renderDraft();renderCalendar();});
+  $('#fantasyHistorySeason').addEventListener('change',event=>{state.history.fantasySeason=event.target.value;loadHistoricalFantasySeason();});
+  $('#fantasyHistoryPosition').addEventListener('change',event=>{state.history.fantasyPosition=event.target.value;renderHistory();});
+  $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();invalidateTeamPlans();recalculateAll();});
+  document.addEventListener('input',event=>{const input=event.target.closest('[data-rule-key]');if(!input)return;state.rules[input.dataset.ruleType][input.dataset.ruleKey].value=number(input.value);saveRules();invalidateTeamPlans();state.history.fantasyCache.clear();state.history.fantasyStatus='idle';state.players=state.players.map(calculatePlayer);renderDashboard();applyPlayerFilters();renderLab();renderDraft();});
   $('#closeDialog').addEventListener('click',()=>$('#messageDialog').close());
 }
 
