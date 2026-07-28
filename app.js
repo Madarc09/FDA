@@ -44,6 +44,7 @@ const ACTIVE_ROSTER_TARGETS = { F:12, D:8, G:3 };
 const NIGHTLY_LIMITS = { F:6, D:4, G:2 };
 const NHL_SALARY_CAP = 104000000;
 const NHL_LEAGUE_MINIMUM = 850000;
+const CALENDAR_LOW_CAP_MAX = 3000000;
 const DEFAULT_UNSIGNED_ESTIMATES = { 'adam fantilli':12000000 };
 const BUDGET_PLAN_DEFINITIONS = {
   minimum:{ label:'Maximum flexibility', description:'Every empty slot stays at league minimum so the unassigned reserve is completely visible.' },
@@ -96,8 +97,10 @@ const state = {
     status:'idle', error:'', source:'', records:[], metadata:{}, index:new Map(),
     plan:storage.getItem('fda-budget-plan') || 'minimum',
     estimates:loadSalaryEstimates(),
+    corrections:loadSalaryCorrections(),
+    predictions:loadPlayerPredictions(),
     slotOverrides:loadSlotBudgetOverrides(),
-    selectedSlot:null,
+    selectedSlot:null, editorPlayerId:null, editorSearch:'',
     recommendationSort:storage.getItem('fda-recommendation-sort') || 'FPG',
     draftSearch:'', draftPosition:'ALL', draftSort:'FPG', draftFitsSlot:false
   },
@@ -140,6 +143,18 @@ function loadSalaryEstimates() {
 function loadSlotBudgetOverrides() {
   try { return JSON.parse(storage.getItem('fda-slot-budget-overrides') || '{}'); }
   catch { return {}; }
+}
+function loadSalaryCorrections() {
+  try { return JSON.parse(storage.getItem('fda-salary-corrections') || '{}'); }
+  catch { return {}; }
+}
+function loadPlayerPredictions() {
+  try { return JSON.parse(storage.getItem('fda-player-predictions') || '{}'); }
+  catch { return {}; }
+}
+function savePlayerOverrides() {
+  storage.setItem('fda-salary-corrections',JSON.stringify(state.salary.corrections));
+  storage.setItem('fda-player-predictions',JSON.stringify(state.salary.predictions));
 }
 function saveSalarySettings() {
   storage.setItem('fda-budget-plan',state.salary.plan);
@@ -200,40 +215,37 @@ function parseCsvRows(text) {
   const header=(rows.shift()||[]).map(value=>String(value).trim());
   return rows.filter(values=>values.some(value=>String(value).trim())).map(values=>Object.fromEntries(header.map((key,index)=>[key,values[index]??''])));
 }
-function salaryOverridePayload() {
-  try { return JSON.parse(storage.getItem('fda-salary-master-override') || 'null'); }
-  catch { return null; }
-}
-function persistSalaryOverride(records,source='Imported salary master') {
-  const compact=records.map(record=>({player:record.name,team:record.team,position:record.position,salary:record.salary,rosterStatus:record.rosterStatus||''}));
-  storage.setItem('fda-salary-master-override',JSON.stringify({source,records:compact,metadata:{scope:'browser-import',recordCount:compact.length,zeroMeansUnsigned:true}}));
-}
-function clearSalaryOverride() { storage.removeItem('fda-salary-master-override'); }
 function rebuildSalaryIndex() {
   state.salary.index=new Map();
   for(const record of state.salary.records)state.salary.index.set(salaryKey(record.name,record.team,record.position),record);
 }
+function playerDataKey(player) { return salaryKey(player?.name,player?.team,positionGroup(player)); }
+function salaryCorrectionFor(player) {
+  const value=state.salary.corrections[playerDataKey(player)];
+  return value===undefined?null:number(value);
+}
+function predictionForPlayer(player) {
+  const value=number(state.salary.predictions[playerDataKey(player)]);
+  return value>0?value:null;
+}
+function playerRankingFpg(player) { return predictionForPlayer(player) ?? number(player?.fpg); }
 function findSalaryRecord(player) {
-  return state.salary.index.get(salaryKey(player.name,player.team,positionGroup(player))) || null;
+  const key=playerDataKey(player);
+  const base=state.salary.index.get(key) || null;
+  const correction=salaryCorrectionFor(player);
+  if(correction===null)return base;
+  return { ...(base||{name:player.name,team:normalizeTeamCode(player.team),position:positionGroup(player),rosterStatus:'Nick update'}), salary:correction, corrected:true };
 }
 function applySalaryDataToPlayers() {
   state.players=state.players.map(player=>{
     const record=findSalaryRecord(player);
-    if(!record)return { ...player, capHit:null, salaryStatus:'missing', salaryRecord:null };
-    return { ...player, capHit:record.salary>0?record.salary:null, salaryStatus:record.salary>0?'signed':'unsigned', salaryRecord:record };
+    const predictionFpg=predictionForPlayer(player);
+    if(!record)return { ...player, capHit:null, salaryStatus:'missing', salaryRecord:null, salaryCorrected:false, predictionFpg };
+    return { ...player, capHit:record.salary>0?record.salary:null, salaryStatus:record.salary>0?'signed':'unsigned', salaryRecord:record, salaryCorrected:Boolean(record.corrected), predictionFpg };
   });
 }
 async function loadSalaryData({ force=false }={}) {
   if(state.salary.status==='loading')return;
-  const browserOverride=salaryOverridePayload();
-  if(browserOverride?.records?.length){
-    state.salary.records=browserOverride.records.map(normalizeSalaryRecord).filter(row=>row.name&&row.team);
-    state.salary.metadata=browserOverride.metadata||{scope:'browser-import'};
-    state.salary.source=browserOverride.source||'Imported salary master';
-    state.salary.status='ready'; state.salary.error=''; rebuildSalaryIndex();
-    addDiagnostic('Imported salary master',`${state.salary.records.length} salary records loaded from this browser.`,'ok',`${state.salary.records.length} records`);
-    return;
-  }
   if(!force&&state.salary.records.length)return;
   state.salary.status='loading'; state.salary.error='';
   try {
@@ -241,16 +253,16 @@ async function loadSalaryData({ force=false }={}) {
     if(!response.ok)throw new Error(`${response.status} ${response.statusText}`);
     const payload=await response.json();
     const rows=salaryRowsFromPayload(payload);
-    if(!rows.length)throw new Error('The salary file contains no player records.');
+    if(!rows.length)throw new Error('The packaged salary reference contains no player records.');
     state.salary.records=rows.map(normalizeSalaryRecord).filter(row=>row.name&&row.team);
     state.salary.metadata=payload.metadata||{};
-    state.salary.source=payload.source||state.salary.metadata.source||'Static 2026-27 salary master';
+    state.salary.source=payload.source||state.salary.metadata.source||'Packaged 2026-27 salary reference';
     state.salary.status='ready';
     rebuildSalaryIndex();
-    addDiagnostic('Static salary master',`${state.salary.records.length} salary records loaded for cap matching.`,'ok',state.salary.metadata.scope==='keeper-subset'?'Keeper set':`${state.salary.records.length} records`);
+    addDiagnostic('Packaged salary file',`${state.salary.records.length} salary records loaded directly from data/SALARY_CAP_SPACE.json.`,'ok',`${state.salary.records.length} records`);
   } catch(error) {
     state.salary.status='error'; state.salary.error=error.message; state.salary.records=[]; state.salary.index=new Map();
-    addDiagnostic('Static salary master unavailable',error.message,'warn','Cap estimates only');
+    addDiagnostic('Packaged salary file unavailable',error.message,'warn','Cap estimates only');
   }
 }
 function normalizedName(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g,' '); }
@@ -1070,6 +1082,8 @@ function selectedSlotBudgetInfo(plan){
   return {slot,base,budget,hardMax,key,custom:override>0};
 }
 function playerValueRate(player){return number(player.capHit)>0?number(player.fpg)/(number(player.capHit)/1000000):0;}
+function playerProjectedValueRate(player){return number(player.capHit)>0?playerRankingFpg(player)/(number(player.capHit)/1000000):0;}
+function predictionBadge(player){const prediction=predictionForPlayer(player);return prediction?`PRED ${fmt(prediction,2)}`:'NO PREDICTION';}
 function recommendationCandidates(plan){
   const info=selectedSlotBudgetInfo(plan);
   if(!info.slot)return [];
@@ -1084,6 +1098,8 @@ function recommendationCandidates(plan){
   );
   const sort=state.salary.recommendationSort;
   available.sort(sort==='VALUE'?(a,b)=>playerValueRate(b)-playerValueRate(a)||b.fpg-a.fpg:
+    sort==='PROJECTED_VALUE'?(a,b)=>playerProjectedValueRate(b)-playerProjectedValueRate(a)||playerRankingFpg(b)-playerRankingFpg(a):
+    sort==='PREDICTION'?(a,b)=>playerRankingFpg(b)-playerRankingFpg(a)||b.fpg-a.fpg:
     sort==='RECENT'?(a,b)=>b.recentFpg-a.recentFpg||b.fpg-a.fpg:
     sort==='TOTAL'?(a,b)=>b.fantasyPoints-a.fantasyPoints||b.fpg-a.fpg:
     (a,b)=>b.fpg-a.fpg||playerValueRate(b)-playerValueRate(a));
@@ -1104,12 +1120,12 @@ function renderCapPlanner(plan) {
   $('#capLimit').textContent=money(NHL_SALARY_CAP);
   $('#capProgress').style.width=`${Math.min(100,cap.percent)}%`;
   $('#capProgress').classList.toggle('over',cap.remaining<0);
-  const isSubset=state.salary.metadata.scope==='keeper-subset';
-  const imported=state.salary.metadata.scope==='browser-import';
-  $('#salaryMasterState').textContent=state.salary.status==='ready'?(isSubset?'KEEPER SET':`${state.salary.records.length} RECORDS`):state.salary.status==='error'?'ESTIMATE MODE':'LOADING';
-  $('#salaryMasterState').className=`status-badge ${state.salary.status==='error'||isSubset?'warning':''}`;
-  const importStatus=$('#salaryImportStatus');
-  if(importStatus)importStatus.textContent=imported?`${state.salary.records.length.toLocaleString('en-US')} records imported into this browser.`:isSubset?'Only the 12 keeper/minor records are packaged right now. Import the complete JSON or CSV to activate league-wide salary recommendations.':`${state.salary.records.length.toLocaleString('en-US')} packaged salary records loaded.`;
+  const expected=number(state.salary.metadata.fullMasterExpectedRecords);
+  const incomplete=expected>0&&state.salary.records.length<expected;
+  $('#salaryMasterState').textContent=state.salary.status==='ready'?`${state.salary.records.length} FILE ROWS`:state.salary.status==='error'?'ESTIMATE MODE':'LOADING';
+  $('#salaryMasterState').className=`status-badge ${state.salary.status==='error'||incomplete?'warning':''}`;
+  const fileStatus=$('#salaryFileStatus');
+  if(fileStatus)fileStatus.textContent=state.salary.status==='ready'?`${state.salary.records.length.toLocaleString('en-US')} packaged records are being referenced automatically. ${Object.keys(state.salary.corrections).length} local salary update${Object.keys(state.salary.corrections).length===1?'':'s'} saved.`:state.salary.error;
   const unresolved=$('#unsignedEstimateEditor');
   unresolved.innerHTML=cap.unresolved.map(player=>`<label class="unsigned-estimate"><span><strong>${safeText(player.name)}</strong><small>${player.salaryStatus==='unsigned'?'Unsigned in static master':'No salary match'} · planning estimate</small></span><span class="money-input"><b>$</b><input type="number" min="${NHL_LEAGUE_MINIMUM}" step="50000" data-salary-estimate="${safeText(playerEstimateKey(player))}" value="${planningSalaryForPlayer(player)}"/></span></label>`).join('')||'<div class="cap-confirmed">Every active roster salary is signed and matched.</div>';
   $$('.budget-plan-button').forEach(button=>button.classList.toggle('active',button.dataset.budgetPlan===plan.mode));
@@ -1123,7 +1139,7 @@ function renderCapPlanner(plan) {
   $('#capWarning').innerHTML=cap.unresolved.length?`<strong>${cap.unresolved.length} estimated contract${cap.unresolved.length===1?'':'s'}:</strong> ${cap.unresolved.map(player=>safeText(player.name)).join(', ')}. These estimates affect planning but are not presented as signed cap hits.`:'All active salaries are confirmed in the static file.';
 }
 
-function recommendationSortLabel(value){return ({FPG:'FP/G',VALUE:'FP/G per $1M',RECENT:'recent form',TOTAL:'season FPTS'}[value]||'FP/G');}
+function recommendationSortLabel(value){return ({FPG:'FP/G',VALUE:'FP/G per $1M',PROJECTED_VALUE:'predicted FP/G per $1M',PREDICTION:'your prediction',RECENT:'recent form',TOTAL:'season FPTS'}[value]||'FP/G');}
 function renderSlotRecommendations(plan){
   const badge=$('#selectedSlotBadge'),budgetBox=$('#selectedSlotBudget'),container=$('#slotRecommendations');
   if(!badge||!budgetBox||!container)return;
@@ -1141,11 +1157,10 @@ function renderSlotRecommendations(plan){
   budgetBox.innerHTML=`<div><small>Generated price</small><strong>${money(info.base)}</strong></div><label><small>Maximum spend for this search</small><span class="money-input"><b>$</b><input id="selectedSlotMax" type="number" min="${NHL_LEAGUE_MINIMUM}" max="${info.hardMax}" step="50000" value="${info.budget}" /></span></label><div><small>Absolute max</small><strong>${money(info.hardMax)}</strong><span>Leaves minimum salary for every other opening.</span></div><button class="text-button" id="resetSelectedSlotBudget" type="button" ${info.custom?'':'disabled'}>Reset to plan</button>`;
   const candidates=recommendationCandidates(plan);
   if(!candidates.length){
-    const salaryMessage=state.salary.metadata.scope==='keeper-subset'?'<strong>The complete salary master is needed.</strong> Import its JSON or CSV above so FDA can compare every player by real cap hit.':'No signed player with season stats fits this exact position and budget.';
-    container.innerHTML=`<div class="assistant-empty">${salaryMessage}</div>`;
+    container.innerHTML='<div class="assistant-empty">No signed player with season stats fits this exact position and budget in the packaged salary reference.</div>';
     return;
   }
-  container.innerHTML=`<div class="recommendation-context">Top five by <strong>${recommendationSortLabel(state.salary.recommendationSort)}</strong> under <strong>${money(info.budget)}</strong></div>`+candidates.map((player,index)=>`<article class="slot-recommendation-row"><span class="rank">${index+1}</span><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.12"/><div><strong>${safeText(player.name)}</strong><small>${safeText(player.team)} · ${salaryBadge(player,true)} · ${fmt(player.fpg,2)} FP/G</small><span>${fmt(playerValueRate(player),2)} FP/G per $1M${player.recentGames?` · ${fmt(player.recentFpg,2)} recent`:''}</span></div><button class="primary-button mini" data-add-roster="${player.id}" type="button">ADD</button></article>`).join('');
+  container.innerHTML=`<div class="recommendation-context">Top five by <strong>${recommendationSortLabel(state.salary.recommendationSort)}</strong> under <strong>${money(info.budget)}</strong></div>`+candidates.map((player,index)=>`<article class="slot-recommendation-row"><span class="rank">${index+1}</span><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.12"/><div><strong>${safeText(player.name)}</strong><small>${safeText(player.team)} · ${salaryBadge(player,true)} · ${fmt(player.fpg,2)} FP/G</small><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted · ${fmt(playerProjectedValueRate(player),2)} predicted FP/G per $1M`:`${fmt(playerValueRate(player),2)} FP/G per $1M`}${player.recentGames?` · ${fmt(player.recentFpg,2)} recent`:''}</span></div><button class="primary-button mini" data-add-roster="${player.id}" type="button">ADD</button></article>`).join('');
 }
 
 function openSlotBudgetFor(plan,group,index){ return number(plan.slots[group]?.[index]||NHL_LEAGUE_MINIMUM); }
@@ -1168,6 +1183,8 @@ function renderDraftPool(plan){
   if(state.salary.draftFitsSlot&&selectedInfo.slot)available=available.filter(player=>positionGroup(player)===selectedInfo.slot.group&&number(player.capHit)>0&&number(player.capHit)<=selectedInfo.budget);
   const sort=state.salary.draftSort;
   available.sort(sort==='VALUE'?(a,b)=>playerValueRate(b)-playerValueRate(a)||b.fpg-a.fpg:
+    sort==='PROJECTED_VALUE'?(a,b)=>playerProjectedValueRate(b)-playerProjectedValueRate(a)||playerRankingFpg(b)-playerRankingFpg(a):
+    sort==='PREDICTION'?(a,b)=>playerRankingFpg(b)-playerRankingFpg(a)||b.fpg-a.fpg:
     sort==='RECENT'?(a,b)=>b.recentFpg-a.recentFpg||b.fpg-a.fpg:
     sort==='SALARY_LOW'?(a,b)=>(number(a.capHit)||Infinity)-(number(b.capHit)||Infinity)||b.fpg-a.fpg:
     sort==='SALARY_HIGH'?(a,b)=>number(b.capHit)-number(a.capHit)||b.fpg-a.fpg:
@@ -1176,8 +1193,59 @@ function renderDraftPool(plan){
   $('#draftList').innerHTML=rows.map(player=>{
     const canAdd=draftPlayerCanBeAdded(player);
     const reason=!number(player.capHit)?(player.salaryStatus==='unsigned'?'UNSIGNED':'SALARY NEEDED'):canAdd?'ADD':'NO CAP/SLOT';
-    return `<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small><span class="draft-salary ${number(player.capHit)?'signed':'pending'}">${salaryBadge(player,true)}${number(player.capHit)?` · ${fmt(playerValueRate(player),2)} FP/G/$1M`:''}</span></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${fmt(player.fantasyPoints,1)} FPTS</span></div><button data-add-roster="${player.id}" ${canAdd?'':'disabled'}>${reason}</button></div>`;
+    return `<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small><span class="draft-salary ${number(player.capHit)?'signed':'pending'}">${salaryBadge(player,true)}${number(player.capHit)?` · ${fmt(playerValueRate(player),2)} FP/G/$1M`:''}</span></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} PRED`:`${fmt(player.fantasyPoints,1)} FPTS`}</span></div><button data-add-roster="${player.id}" ${canAdd?'':'disabled'}>${reason}</button></div>`;
   }).join('')||'<div class="empty-state">No players match these experiment filters.</div>';
+}
+
+function salaryEditorMatches() {
+  const search=state.salary.editorSearch.trim().toLowerCase();
+  if(!search)return [];
+  return state.players.filter(player=>`${player.name} ${player.team} ${positionGroup(player)}`.toLowerCase().includes(search)).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,12);
+}
+function renderSalaryPredictionEditor() {
+  const results=$('#salaryEditorResults'), form=$('#salaryEditorForm');
+  if(!results||!form)return;
+  const matches=salaryEditorMatches();
+  results.innerHTML=state.salary.editorSearch?matches.map(player=>`<button type="button" class="salary-editor-result ${state.salary.editorPlayerId===player.id?'active':''}" data-edit-player="${player.id}"><span><strong>${safeText(player.name)}</strong><small>${player.team} · ${positionGroup(player)}</small></span><span><b>${salaryBadge(player,true)}</b><small>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted`:'No prediction'}</small></span></button>`).join('')||'<div class="assistant-empty">No player matches that search.</div>':'<div class="assistant-empty">Search any player in the NHL database to update salary or add your own FP/G prediction.</div>';
+  const player=state.players.find(item=>item.id===number(state.salary.editorPlayerId));
+  if(!player){form.innerHTML='<div class="assistant-empty">Choose a player above.</div>';return;}
+  const correction=salaryCorrectionFor(player);
+  const salaryValue=correction===null?(number(player.capHit)||0):correction;
+  const prediction=predictionForPlayer(player)||'';
+  form.innerHTML=`<div class="salary-editor-player"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${positionGroup(player)} · file salary ${salaryBadge(player,true)}</small></div></div><label><span>2026-27 salary</span><input id="salaryEditorAmount" type="number" min="0" step="50000" value="${salaryValue}" /></label><label><span>Your predicted FP/G</span><input id="predictionEditorValue" type="number" min="0" step="0.01" placeholder="Example: 6.25" value="${prediction}" /></label><div class="salary-editor-actions"><button class="primary-button" id="savePlayerData" type="button">Save salary + prediction</button><button class="text-button" id="clearPlayerData" type="button">Clear my edits</button></div><small class="salary-editor-note">Salary edits override the packaged file in this browser. Predictions become available as draft and recommendation sorters.</small>`;
+}
+function saveSelectedPlayerData() {
+  const player=state.players.find(item=>item.id===number(state.salary.editorPlayerId));
+  if(!player)return;
+  const key=playerDataKey(player);
+  const salaryInput=$('#salaryEditorAmount');
+  const predictionInput=$('#predictionEditorValue');
+  if(salaryInput)state.salary.corrections[key]=Math.max(0,number(salaryInput.value));
+  const prediction=number(predictionInput?.value);
+  if(prediction>0)state.salary.predictions[key]=prediction; else delete state.salary.predictions[key];
+  savePlayerOverrides(); applySalaryDataToPlayers(); invalidateTeamPlans();
+  renderDraft(); renderCalendar(); applyPlayerFilters(); renderLab();
+}
+function clearSelectedPlayerData() {
+  const player=state.players.find(item=>item.id===number(state.salary.editorPlayerId));
+  if(!player)return;
+  const key=playerDataKey(player); delete state.salary.corrections[key]; delete state.salary.predictions[key];
+  savePlayerOverrides(); applySalaryDataToPlayers(); invalidateTeamPlans();
+  renderDraft(); renderCalendar(); applyPlayerFilters(); renderLab();
+}
+function downloadUpdatedSalaryMaster() {
+  const records=new Map(state.salary.records.map(record=>[salaryKey(record.name,record.team,record.position),{player:record.name,team:record.team,position:record.position,rosterStatus:record.rosterStatus||'',salary:number(record.salary),predictionFpg:null}]));
+  for(const player of state.players){
+    const key=playerDataKey(player); const correction=salaryCorrectionFor(player); const prediction=predictionForPlayer(player);
+    if(correction===null&&!prediction)continue;
+    const row=records.get(key)||{player:player.name,team:normalizeTeamCode(player.team),position:positionGroup(player),rosterStatus:'Nick update',salary:number(player.capHit)||0,predictionFpg:null};
+    if(correction!==null)row.salary=correction;
+    if(prediction)row.predictionFpg=prediction;
+    records.set(key,row);
+  }
+  const payload={season:'2026-27',source:'FDA packaged salary reference plus Nick updates',generatedAt:new Date().toISOString(),records:[...records.values()].sort((a,b)=>a.team.localeCompare(b.team)||a.player.localeCompare(b.player))};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const link=document.createElement('a');
+  link.href=url; link.download='FDA-SALARY-PREDICTION-MASTER-2026-27.json'; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
 }
 
 function renderDraft() {
@@ -1195,13 +1263,14 @@ function renderDraft() {
   const plan=buildBudgetPlan();
   ensureSelectedBudgetSlot(plan);
   renderCapPlanner(plan);
+  renderSalaryPredictionEditor();
 
   const mainGroups=['F','D','G'].map(group=>{
     const players=active.filter(player=>positionGroup(player)===group);
     const slots=Array.from({length:ACTIVE_ROSTER_TARGETS[group]},(_,index)=>players[index]||null);
     let openIndex=0;
     return `<div class="roster-group"><div class="roster-group-title"><strong>${group==='F'?'Forwards':group==='D'?'Defence':'Goalies'}</strong><span>${players.length} / ${ACTIVE_ROSTER_TARGETS[group]}</span></div><div class="slot-grid">${slots.map(player=>{
-      if(player)return `<div class="roster-slot filled ${player.keeper?'keeper-slot':''}"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G${player.keeper?' · KEEPER':''}</small><span class="slot-salary ${number(player.capHit)?'signed':'estimated'}">${number(player.capHit)?salaryBadge(player,true):`${salaryBadge(player)} · PLAN ${money(planningSalaryForPlayer(player),true)}`}</span></div>${player.keeper?'<span class="roster-lock">LOCKED</span>':`<button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}" title="Remove player"></button>`}</div>`;
+      if(player)return `<div class="roster-slot filled ${player.keeper?'keeper-slot':''}"><img src="${headshotUrl(player)}" alt="" onerror="this.src='${teamLogoUrl(player.team)}'"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${fmt(player.fpg,2)} FP/G${predictionForPlayer(player)?` · ${fmt(playerRankingFpg(player),2)} PRED`:''}${player.keeper?' · KEEPER':''}</small><span class="slot-salary ${number(player.capHit)?'signed':'estimated'}">${number(player.capHit)?salaryBadge(player,true):`${salaryBadge(player)} · PLAN ${money(planningSalaryForPlayer(player),true)}`}</span></div>${player.keeper?'<span class="roster-lock">LOCKED</span>':`<button data-remove-roster="${player.id}" aria-label="Remove ${safeText(player.name)}" title="Remove player"></button>`}</div>`;
       const index=openIndex++;
       const estimate=openSlotBudgetFor(plan,group,index);
       const selected=state.salary.selectedSlot?.group===group&&state.salary.selectedSlot?.index===index;
@@ -1565,31 +1634,52 @@ function renderRosterFit() {
   list.innerHTML=rows.map((row,index)=>`<article class="roster-fit-row"><span class="rank">${index+1}</span><img class="team-logo-large" src="${teamLogoUrl(row.team)}" alt=""/><div><strong>${row.team} · ${safeText(row.player.name)}</strong><small>${fmt(row.player.fpg,2)} FP/G example · +${row.incremental} total dressed starts</small></div><span><b>${row.dressed}</b> dressed</span><span><b>${row.off}</b> off-night</span><span class="${row.bench?'warning':''}"><b>${row.bench}</b> benched</span></article>`).join('');
 }
 
-function keeperPartnerRows() {
+function rosterForwardPartnerRows() {
   const range=calendarRange();
   const leagueCounts=leagueCountsForRange(range);
-  const grouped=new Map();
-  for(const player of activeRosterPlayers()){
-    if(!grouped.has(player.team))grouped.set(player.team,[]);
-    grouped.get(player.team).push(player);
-  }
-  return [...grouped.entries()].map(([team,players])=>{
-    const home=new Set(teamDatesForWindow(team,range));
-    const partners=Object.keys(state.calendar.data.teams).filter(other=>other!==team).map(other=>{
+  const forwards=activeRosterPlayers().filter(player=>positionGroup(player)==='F');
+  const rosterIds=new Set(state.roster);
+  const cap=rosterCapSummary(activeRosterPlayers());
+  const openSlots=Math.max(0,23-activeRosterCount());
+  const hardMax=Math.max(0,cap.remaining-Math.max(0,openSlots-1)*NHL_LEAGUE_MINIMUM);
+  const candidates=state.players.filter(player=>positionGroup(player)==='F'&&!rosterIds.has(player.id)&&!player.keeper&&number(player.gamesPlayed)>0&&number(player.capHit)>0&&number(player.capHit)<=hardMax);
+  const maxProduction=Math.max(1,...candidates.map(playerRankingFpg));
+  const maxEfficiency=Math.max(1,...candidates.map(playerProjectedValueRate));
+  return forwards.map(forward=>{
+    const home=new Set(teamDatesForWindow(forward.team,range));
+    const allPartners=Object.keys(state.calendar.data.teams).filter(other=>other!==forward.team).map(other=>{
       const dates=teamDatesForWindow(other,range);
       const opposite=dates.filter(date=>!home.has(date)).length;
       const overlap=dates.filter(date=>home.has(date)).length;
       const sparseOpposite=dates.filter(date=>!home.has(date)&&number(leagueCounts[date])<=state.calendar.threshold).length;
       return {team:other,opposite,overlap,sparseOpposite,score:opposite*2+sparseOpposite*.75-overlap*.45};
-    }).sort((a,b)=>b.score-a.score||b.opposite-a.opposite).slice(0,3);
-    return {team,players,partners};
-  }).sort((a,b)=>a.team.localeCompare(b.team));
+    }).sort((a,b)=>b.score-a.score||b.opposite-a.opposite);
+    const minSchedule=Math.min(...allPartners.map(item=>item.score));
+    const maxSchedule=Math.max(...allPartners.map(item=>item.score));
+    const scoreCandidate=(player,partner)=>{
+      const production=playerRankingFpg(player)/maxProduction*100;
+      const efficiency=playerProjectedValueRate(player)/maxEfficiency*100;
+      const calendar=maxSchedule===minSchedule?100:(partner.score-minSchedule)/(maxSchedule-minSchedule)*100;
+      return {total:round(production*.5+efficiency*.3+calendar*.2,1),production:round(production,0),efficiency:round(efficiency,0),calendar:round(calendar,0)};
+    };
+    const partners=allPartners.slice(0,3).map(partner=>{
+      const teamPlayers=candidates.filter(player=>player.team===partner.team);
+      const choose=pool=>pool.map(player=>({player,fit:scoreCandidate(player,partner)})).sort((a,b)=>b.fit.total-a.fit.total||playerRankingFpg(b.player)-playerRankingFpg(a.player))[0]||null;
+      return { ...partner, low:choose(teamPlayers.filter(player=>number(player.capHit)<=CALENDAR_LOW_CAP_MAX)), high:choose(teamPlayers.filter(player=>number(player.capHit)>CALENDAR_LOW_CAP_MAX)) };
+    });
+    return {forward,partners,hardMax};
+  });
 }
-
+function calendarCandidateHtml(candidate,tier) {
+  if(!candidate)return `<div class="calendar-player-pick empty"><span>${tier}</span><small>No signed match in this tier</small></div>`;
+  const player=candidate.player, canAdd=draftPlayerCanBeAdded(player);
+  return `<div class="calendar-player-pick"><span>${tier}</span><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${salaryBadge(player,true)} · ${fmt(playerRankingFpg(player),2)} ${predictionForPlayer(player)?'predicted':'FP/G'}</small><em>Value Fit ${fmt(candidate.fit.total,1)} · P${candidate.fit.production} / $${candidate.fit.efficiency} / C${candidate.fit.calendar}</em></div><button class="primary-button mini" data-add-roster="${player.id}" ${canAdd?'':'disabled'} type="button">${canAdd?'ADD':'NO SLOT/CAP'}</button></div>`;
+}
 function renderKeeperPartners() {
   const container=$('#keeperPartnerGrid'); if(!container)return;
-  const rows=keeperPartnerRows();
-  container.innerHTML=rows.map(row=>`<article class="keeper-partner-card"><header><span class="keeper-team"><img src="${teamLogoUrl(row.team)}" alt=""/><span><strong>${row.team}</strong><small>${row.players.map(player=>safeText(player.name)).join(' · ')}</small></span></span></header><div>${row.partners.map((partner,index)=>`<span class="partner-rank"><b>${index+1}. ${partner.team}</b><small>${partner.opposite} games while ${row.team} is off · ${partner.overlap} conflicts</small></span>`).join('')}</div></article>`).join('');
+  const rows=rosterForwardPartnerRows();
+  if(!rows.length){container.innerHTML='<div class="calendar-loading">No active forwards are currently on the roster.</div>';return;}
+  container.innerHTML=rows.map(row=>`<article class="forward-partner-card"><header><img src="${headshotUrl(row.forward)}" alt="" onerror="this.src='${teamLogoUrl(row.forward.team)}'"/><div><strong>${safeText(row.forward.name)}</strong><small>${row.forward.team} · ${fmt(row.forward.fpg,2)} FP/G${predictionForPlayer(row.forward)?` · ${fmt(playerRankingFpg(row.forward),2)} predicted`:''}</small></div><span>${money(row.hardMax,true)} max add</span></header><div class="forward-partner-teams">${row.partners.map((partner,index)=>`<section class="forward-partner-team"><div class="partner-team-summary"><span class="rank">${index+1}</span><img src="${teamLogoUrl(partner.team)}" alt=""/><div><strong>${partner.team}</strong><small>${partner.opposite} games while ${row.forward.team} is off · ${partner.overlap} conflicts · ${partner.sparseOpposite} sparse-night games</small></div></div><div class="calendar-pick-grid">${calendarCandidateHtml(partner.low,`LOW ≤ ${money(CALENDAR_LOW_CAP_MAX,true)}`)}${calendarCandidateHtml(partner.high,`HIGH > ${money(CALENDAR_LOW_CAP_MAX,true)}`)}</div></section>`).join('')}</div></article>`).join('');
 }
 
 function planObjective(result,baseline,strategy,playoffResult=null,playoffBaseline=null) {
@@ -2074,6 +2164,10 @@ function bindEvents() {
       invalidateTeamPlans();saveRoster();renderDraft();renderCalendar();
     }
     const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){const player=state.players.find(item=>item.id===number(removeId));if(player?.keeper)return;state.roster=state.roster.filter(id=>id!==number(removeId));invalidateTeamPlans();saveRoster();renderDraft();renderCalendar();}
+    const editPlayer=event.target.closest('[data-edit-player]')?.dataset.editPlayer; if(editPlayer){state.salary.editorPlayerId=number(editPlayer);renderSalaryPredictionEditor();}
+    if(event.target.closest('#savePlayerData'))saveSelectedPlayerData();
+    if(event.target.closest('#clearPlayerData'))clearSelectedPlayerData();
+    if(event.target.closest('#downloadSalaryUpdates'))downloadUpdatedSalaryMaster();
     const budgetPlan=event.target.closest('[data-budget-plan]')?.dataset.budgetPlan; if(budgetPlan){state.salary.plan=budgetPlan;saveSalarySettings();renderDraft();}
     const slotTarget=event.target.closest('[data-select-budget-slot]')?.dataset.selectBudgetSlot; if(slotTarget){const [group,index]=slotTarget.split(':');state.salary.selectedSlot={group,index:number(index)};renderDraft();}
     if(event.target.closest('#resetSelectedSlotBudget')){const plan=buildBudgetPlan();const info=selectedSlotBudgetInfo(plan);if(info.key)delete state.salary.slotOverrides[info.key];saveSalarySettings();renderDraft();}
@@ -2108,8 +2202,7 @@ function bindEvents() {
   $('#draftPosition').addEventListener('change',event=>{state.salary.draftPosition=event.target.value;renderDraftPool(buildBudgetPlan());});
   $('#draftSort').addEventListener('change',event=>{state.salary.draftSort=event.target.value;renderDraftPool(buildBudgetPlan());});
   $('#draftFitsSlot').addEventListener('change',event=>{state.salary.draftFitsSlot=event.target.checked;renderDraftPool(buildBudgetPlan());});
-  $('#salaryMasterImport').addEventListener('change',event=>importSalaryMasterFile(event.target.files?.[0]));
-  $('#clearSalaryImport').addEventListener('click',async()=>{clearSalaryOverride();state.salary.records=[];state.salary.index=new Map();state.salary.status='idle';await loadSalaryData({force:true});applySalaryDataToPlayers();renderDraft();applyPlayerFilters();renderLab();});
+  $('#salaryEditorSearch').addEventListener('input',event=>{state.salary.editorSearch=event.target.value;renderSalaryPredictionEditor();});
   $('#fantasyHistorySeason').addEventListener('change',event=>{state.history.fantasySeason=event.target.value;loadHistoricalFantasySeason();});
   $('#fantasyHistoryPosition').addEventListener('change',event=>{state.history.fantasyPosition=event.target.value;renderHistory();});
   $('#restoreRules').addEventListener('click',()=>{state.rules=structuredClone(DEFAULT_RULES);saveRules();invalidateTeamPlans();recalculateAll();});

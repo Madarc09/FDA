@@ -434,11 +434,12 @@
 
         <section class="panel calendar-section">
           <div class="section-heading">
-            <div><p class="eyebrow">KEEPER-BY-KEEPER PARTNERS</p><h2>Best bench-team matches for every team in your core</h2></div>
-            <span class="status-badge">Opposite-night lens</span>
+            <div><p class="eyebrow">YOUR FORWARDS · PLAYER BY PLAYER</p><h2>Best calendar partners, then low- and high-cap targets</h2></div>
+            <span class="status-badge">Roster-aware value fit</span>
           </div>
-          <p class="calendar-explainer">For Carlsson and every other keeper, FDA ranks teams by how often they play while that keeper's NHL team is off. This is the direct bench-player pairing view.</p>
-          <div class="keeper-partner-grid" id="keeperPartnerGrid"><div class="calendar-loading">Keeper partner matches will appear after the schedule loads.</div></div>
+          <p class="calendar-explainer">Every active forward is listed separately. FDA ranks the three NHL teams that play most often while that forward's club is off, then selects a low-cap and high-cap available forward from each partner team.</p>
+          <div class="value-fit-formula"><strong>Value Fit v1</strong><span>50% predicted/actual FP/G · 30% FP/G per $1M · 20% calendar complement. P / $ / C on each recommendation shows the three component scores.</span></div>
+          <div class="keeper-partner-grid forward-partner-grid" id="keeperPartnerGrid"><div class="calendar-loading">Roster-forward partner matches will appear after the schedule loads.</div></div>
         </section>
 
         <section class="panel calendar-section team-generator-section">
@@ -504,10 +505,10 @@
             </div>
           </div>
           <div class="budget-plan-summary" id="budgetPlanSummary"></div>
-          <div class="salary-master-tools">
-            <div><p class="eyebrow">SALARY MASTER</p><strong>Use the complete static master for real player recommendations</strong><small id="salaryImportStatus">The packaged file will be checked automatically.</small></div>
-            <label class="salary-import-button">Import JSON or CSV<input id="salaryMasterImport" type="file" accept=".json,.csv,application/json,text/csv" /></label>
-            <button class="text-button" id="clearSalaryImport" type="button">Use packaged file</button>
+          <div class="salary-master-tools salary-editor-tools">
+            <div class="salary-file-heading"><div><p class="eyebrow">PHYSICAL SALARY FILE + YOUR PREDICTIONS</p><strong>The packaged file is the automatic salary reference</strong><small id="salaryFileStatus">The physical workbook and generated JSON are included with this site.</small></div><button class="secondary-button" id="downloadSalaryUpdates" type="button">Download updated master</button></div>
+            <label class="salary-editor-search">Find any player<input id="salaryEditorSearch" type="search" placeholder="Search name, team or position" /></label>
+            <div class="salary-editor-layout"><div class="salary-editor-results" id="salaryEditorResults"></div><div class="salary-editor-form" id="salaryEditorForm"><div class="assistant-empty">Choose a player to update salary or add a predicted FP/G.</div></div></div>
           </div>
         </section>
 
@@ -524,6 +525,8 @@
               <select id="recommendationSort">
                 <option value="FPG">Highest FP/G</option>
                 <option value="VALUE">Best FP/G per $1M</option>
+                <option value="PREDICTION">Highest prediction</option>
+                <option value="PROJECTED_VALUE">Best predicted FP/G per $1M</option>
                 <option value="RECENT">Recent form</option>
                 <option value="TOTAL">Season fantasy points</option>
               </select>
@@ -537,7 +540,7 @@
           <div class="draft-pool-controls">
             <label class="draft-search-label">Player or team<input id="draftSearch" type="search" placeholder="Search player or NHL team" /></label>
             <label>Position<select id="draftPosition"><option value="ALL">All positions</option><option value="F">Forwards</option><option value="D">Defence</option><option value="G">Goalies</option></select></label>
-            <label>Sort<select id="draftSort"><option value="FPG">Highest FP/G</option><option value="VALUE">Best FP/G per $1M</option><option value="RECENT">Recent form</option><option value="SALARY_LOW">Lowest salary</option><option value="SALARY_HIGH">Highest salary</option></select></label>
+            <label>Sort<select id="draftSort"><option value="FPG">Highest FP/G</option><option value="VALUE">Best FP/G per $1M</option><option value="PREDICTION">Highest prediction</option><option value="PROJECTED_VALUE">Best predicted FP/G per $1M</option><option value="RECENT">Recent form</option><option value="SALARY_LOW">Lowest salary</option><option value="SALARY_HIGH">Highest salary</option></select></label>
             <label class="form-check draft-fit-check"><input id="draftFitsSlot" class="form-check-input" type="checkbox" /><span class="form-check-label">Only players who fit selected slot</span></label>
           </div>
           <div class="draft-list" id="draftList"></div>

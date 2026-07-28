@@ -1,13 +1,86 @@
-Team,Team Name,Player,Position,Roster Status,2026-27 Salary
-PHI,Philadelphia Flyers,"Michkov, Matvei",F,Active roster,950000
-ANA,Anaheim Ducks,"Carlsson, Leo",F,Active roster,18000000
-CBJ,Columbus Blue Jackets,"Fantilli, Adam",F,Active roster,0
-SJS,San Jose Sharks,"Misa, Michael",F,Active roster,986250
-SJS,San Jose Sharks,"Dickinson, Sam",D,Active roster,953750
-MTL,Montreal Canadiens,"Dobson, Noah",D,Active roster,9500000
-MIN,Minnesota Wild,"Hughes, Quinn",D,Active roster,7850000
-BOS,Boston Bruins,"McAvoy, Charlie",D,Active roster,9500000
-SJS,San Jose Sharks,"Askarov, Yaroslav",G,Active roster,2000000
-COL,Colorado Avalanche,"Blackwood, MacKenzie",G,Active roster,5250000
-BOS,Boston Bruins,"Hagens, James",F,Active roster,986250
-WSH,Washington Capitals,"Protas, Ilya",F,Active roster,932500
+team,teamName,player,position,rosterStatus,salary,source
+ANA,Anaheim Ducks,"Mathieu, Alexis",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Allain-Samaké, Anthony",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Schueneman, Corey",D,Non-roster,875000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Uljanskis, Darels",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Helleson, Drew",D,Active roster,1100000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Schock, Drew",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Frossard, Eric",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Moore, Ian",D,Active roster,1150000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"LaCombe, Jackson",D,Active roster,9000000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Kurtz, Jayden",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Woo, Jett",D,Non-roster,875000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Rieber, Jimmy",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Smith, Konnor",D,Non-roster,955000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Boelius, Lasse",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Jensen, Nick",D,Active roster,2250000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Warren, Noah",D,Non-roster,865000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Mintyukov, Pavel",D,Active roster,7200000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Solberg, Stian",D,Non-roster,941667,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Smith, Tarin",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Mitchell, Travis",D,Non-roster,850000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Luneau, Tristan",D,Active roster,865000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Hinds, Tyson",D,Active roster,900000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Francis, William",D,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Greer, A.J.",F,Active roster,4250000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Killorn, Alex",F,Active roster,6250000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Blais, Alexandre",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Wahlberg, Anton",F,Non-roster,893333,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Galimov, Artyom",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Burnevik, Austin",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Sennecke, Beckett",F,Active roster,953750,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Turko, Brady",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Kreider, Chris",F,Active roster,6500000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Pitre, Coulson",F,Non-roster,933334,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Gauthier, Cutter",F,Active roster,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Nilson, Eric",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Bowen, Ethan",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Procyszyn, Ethan",F,Non-roster,1040000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Vatrano, Frank",F,Active roster,4571189,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Träff, Herman",F,Non-roster,990000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Hamblin, James",F,Non-roster,875000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Malott, Jeff",F,Active roster,1850000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Caulfield, Judd",F,Non-roster,875000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Kukkonen, Kyle",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Carlsson, Leo",F,Active roster,18000000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Pettersson, Lucas",F,Non-roster,962700,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Nordmark, Marcus",F,Non-roster,1075000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Preston, Mathis",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Masse, Maxim",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Callow, Michael",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Granlund, Mikael",F,Active roster,7000000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Gaucher, Nathan",F,Active roster,886666,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Myatovic, Nico",F,Non-roster,896667,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Klepov, Nikita",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Nesterenko, Nikita",F,Active roster,837500,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Kosick, Noah",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Read, Noah",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Chudzinski, Rian",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"McQueen, Roger",F,Non-roster,1075000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Poehling, Ryan",F,Active roster,3750000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Colangelo, Sam",F,Non-roster,850000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Pastujov, Sasha",F,Non-roster,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Washe, Tim",F,Active roster,812500,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Terry, Troy",F,Active roster,7000000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Sidorov, Yegor",F,Non-roster,940000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Guité, Émile",F,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Clang, Calle",G,Non-roster,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Clara, Damian",G,Non-roster,934166,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Neuenschwander, Elijah",G,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Peshkov, Gleb",G,Unsigned draft choice,0,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Brossoit, Laurent",G,Active roster,1100000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Dostal, Lukas",G,Active roster,6500000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Suchanek, Tomas",G,Non-roster,945000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Husso, Ville",G,Active roster,2200000,SALARY CAP FILE(1).xlsx
+ANA,Anaheim Ducks,"Buteyets, Vyacheslav",G,Non-roster,0,SALARY CAP FILE(1).xlsx
+BOS,Boston Bruins,"McAvoy, Charlie",D,Active roster,9500000,FDA keeper carryover
+BOS,Boston Bruins,"Hagens, James",F,Active roster,986250,FDA keeper carryover
+CBJ,Columbus Blue Jackets,"Fantilli, Adam",F,Active roster,0,FDA keeper carryover
+COL,Colorado Avalanche,"Blackwood, MacKenzie",G,Active roster,5250000,FDA keeper carryover
+MIN,Minnesota Wild,"Hughes, Quinn",D,Active roster,7850000,FDA keeper carryover
+MTL,Montreal Canadiens,"Dobson, Noah",D,Active roster,9500000,FDA keeper carryover
+PHI,Philadelphia Flyers,"Michkov, Matvei",F,Active roster,950000,FDA keeper carryover
+SJS,San Jose Sharks,"Dickinson, Sam",D,Active roster,953750,FDA keeper carryover
+SJS,San Jose Sharks,"Misa, Michael",F,Active roster,986250,FDA keeper carryover
+SJS,San Jose Sharks,"Askarov, Yaroslav",G,Active roster,2000000,FDA keeper carryover
+WSH,Washington Capitals,"Protas, Ilya",F,Active roster,932500,FDA keeper carryover

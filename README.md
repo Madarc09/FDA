@@ -90,27 +90,63 @@ Environment variables:
 - `NHL_SCHEDULE_SEASON` - schedule season, default `20262027`
 - `NHL_SYNC_CONCURRENCY` - Gamecenter synchronization concurrency
 
+## Roster Value Lab (v9)
 
-## Roster Experiment Centre (v8)
+### Roster-forward Calendar Fit
 
-- Uses the 2026-27 NHL upper limit of **$104,000,000** and a planning minimum salary of **$850,000**.
-- The ten locked keepers always remain on the roster. Adam Fantilli remains unsigned in the supplied salary data and uses the editable **$12,000,000 planning estimate** already established for this project.
-- Active roster construction is fixed at **12 forwards, 8 defencemen and 3 goalies**. Hagens and Protas remain protected minors outside the 23-player active cap.
-- Every added or removed player immediately recalculates cap used, cap remaining, open positions, every open-slot estimate and the five-player recommendation list.
-- Nine open-slot allocation models are included: **Maximum flexibility, Balanced, Nightly starters, One superstar, Two premium players, Forward heavy, Defence heavy, Goalie premium, and Mid-tier depth**.
-- Each empty roster position can be selected independently. Its generated price can be overridden with a custom maximum without changing the other openings.
-- The selected opening displays the five best signed players who fit its position and current spending limit. Recommendations can be ranked by **fantasy points per game, FP/G per $1M, recent FP/G, or total fantasy points**.
-- The full draft market can be searched and filtered by position, sorted by the same performance/value measures, and limited to players who fit the currently selected opening.
-- Players can be added directly from either the five-player shortlist or the complete market and removed directly from their roster spot. A selection is blocked if it exceeds the cap, fills an already-complete position, or prevents the remaining openings from receiving at least the league-minimum planning amount.
-- A `$0` salary-master entry is always treated as **Unsigned**, never as a free player.
+Calendar Fit is now driven by the active roster rather than a generic team list. Every active forward receives a separate card containing:
 
-### Loading the complete salary master
+- the three NHL teams that play most often while that forward's club is off;
+- opposite-night games, same-night conflicts and sparse-night games for each partner team;
+- the best available **low-cap forward at $3,000,000 or less** from that team;
+- the best available **high-cap forward above $3,000,000** from that team;
+- an Add button that obeys the 12F / 8D / 3G construction rules and cap reserve requirement.
 
-The completion note supplied with this project describes a 2,197-record master, but it does not contain those records. This ZIP therefore retains the confirmed keeper/minor subset and adds an on-page importer for the complete **JSON or CSV** export. Importing it activates the full draft market and recommendation engine immediately and stores the imported master in the current browser.
+The first transparent **Value Fit v1** score is:
 
-The page also continues to read `data/SALARY_CAP_SPACE.json` automatically. Replacing that file with the complete export makes the master available to every deployment without requiring a browser import. Supported JSON shapes are a plain array or an object containing `records`, `players`, `salaries`, or `data`. Matching uses normalized team, player name and F/D/G position; `NAS`/`NSH` and `WAS`/`WSH` are normalized.
+- 50% predicted FP/G, or current FP/G when no personal prediction exists;
+- 30% predicted/current FP/G per $1 million of cap hit;
+- 20% calendar complement with the roster forward.
 
-Validate the bundled salary file with:
+Each result displays its Production / Dollar / Calendar component scores so the formula can be adjusted later without hiding how the recommendation was produced. Draft additions and removals automatically rebuild these forward cards.
+
+### Physical salary reference
+
+The site no longer asks for a browser import. It automatically reads `data/SALARY_CAP_SPACE.json`, which is generated from and packaged beside the physical workbook:
+
+- `data/SALARY_CAP_FILE_2026-27.xlsx`
+- `data/SALARY_CAP_SPACE.json`
+- `data/SALARY_CAP_SPACE.csv`
+
+The uploaded workbook used for this version contains **74 Anaheim records on one sheet**, not the previously described 2,197-row league-wide export. Eleven non-Anaheim keeper records from the prior FDA package are retained, producing **85 packaged salary rows**. The metadata preserves the expected 2,197-row target so the shortfall is explicit rather than disguised.
+
+A `$0` salary remains unsigned and can never be drafted as a free player. Matching continues to use normalized NHL team, player name and F/D/G position.
+
+### Salary corrections and personal predictions
+
+The Draft Room includes a player editor that can:
+
+- search any player currently loaded in FDA;
+- override that player's 2026-27 salary locally;
+- add or change Nick's predicted FP/G;
+- clear the selected player's local edits;
+- download a new `FDA-SALARY-PREDICTION-MASTER-2026-27.json` containing the packaged records plus saved salary and prediction updates.
+
+Salary corrections and predictions persist in the browser. They immediately update cap usage, open-slot budgets, the available-player market, the five-player slot assistant and Calendar Fit.
+
+Both the slot assistant and full player market now support **Highest prediction** and **Best predicted FP/G per $1M** sort modes in addition to actual FP/G, actual value, recent form and salary sorting.
+
+### Roster and cap rules retained
+
+- NHL upper limit: **$104,000,000**
+- Planning minimum: **$850,000**
+- Active roster: **12 forwards, 8 defencemen and 3 goalies**
+- Nightly lineup: **6 forwards, 4 defencemen and 2 goalies**
+- Ten keepers remain locked
+- James Hagens and Ilya Protas remain protected minors outside the active roster and cap
+- All nine open-slot budget configurations remain available and recalculate after every roster move
+
+Validate the packaged salary reference with:
 
 ```bash
 npm run validate:salaries

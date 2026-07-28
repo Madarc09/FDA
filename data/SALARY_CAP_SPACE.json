@@ -1,26 +1,408 @@
 {
   "season": "2026-27",
-  "source": "Champions League static salary master — keeper records embedded for FDA",
+  "source": "Packaged salary reference generated from SALARY CAP FILE(1).xlsx",
   "metadata": {
-    "scope": "keeper-subset",
-    "recordCount": 12,
+    "scope": "uploaded-workbook-plus-keeper-carryover",
+    "recordCount": 85,
+    "uploadedWorkbookRows": 74,
+    "keeperCarryoverRows": 11,
     "fullMasterExpectedRecords": 2197,
-    "generatedAt": "2026-07-28T19:30:00Z",
+    "generatedAt": "2026-07-28T20:45:00Z",
     "zeroMeansUnsigned": true,
     "matchFields": [
       "team",
       "normalized player name",
       "position"
-    ]
+    ],
+    "note": "The uploaded workbook contains Anaheim records only; non-Anaheim keeper rows were retained from the prior FDA package."
   },
   "records": [
     {
-      "team": "PHI",
-      "teamName": "Philadelphia Flyers",
-      "player": "Michkov, Matvei",
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Mathieu, Alexis",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Allain-Samaké, Anthony",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Schueneman, Corey",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 875000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Uljanskis, Darels",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Helleson, Drew",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 1100000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Schock, Drew",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Frossard, Eric",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Moore, Ian",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 1150000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "LaCombe, Jackson",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 9000000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Kurtz, Jayden",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Woo, Jett",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 875000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Rieber, Jimmy",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Smith, Konnor",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 955000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Boelius, Lasse",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Jensen, Nick",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 2250000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Warren, Noah",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 865000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Mintyukov, Pavel",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 7200000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Solberg, Stian",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 941667,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Smith, Tarin",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Mitchell, Travis",
+      "position": "D",
+      "rosterStatus": "Non-roster",
+      "salary": 850000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Luneau, Tristan",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 865000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Hinds, Tyson",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 900000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Francis, William",
+      "position": "D",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Greer, A.J.",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 950000
+      "salary": 4250000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Killorn, Alex",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 6250000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Blais, Alexandre",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Wahlberg, Anton",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 893333,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Galimov, Artyom",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Burnevik, Austin",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Sennecke, Beckett",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 953750,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Turko, Brady",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Kreider, Chris",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 6500000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Pitre, Coulson",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 933334,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Gauthier, Cutter",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Nilson, Eric",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Bowen, Ethan",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Procyszyn, Ethan",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 1040000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Vatrano, Frank",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 4571189,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Träff, Herman",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 990000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Hamblin, James",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 875000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Malott, Jeff",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 1850000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Caulfield, Judd",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 875000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Kukkonen, Kyle",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
       "team": "ANA",
@@ -28,47 +410,278 @@
       "player": "Carlsson, Leo",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 18000000
+      "salary": 18000000,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
-      "team": "CBJ",
-      "teamName": "Columbus Blue Jackets",
-      "player": "Fantilli, Adam",
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Pettersson, Lucas",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 962700,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Nordmark, Marcus",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 1075000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Preston, Mathis",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Masse, Maxim",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Callow, Michael",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Granlund, Mikael",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 0
+      "salary": 7000000,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
-      "team": "SJS",
-      "teamName": "San Jose Sharks",
-      "player": "Misa, Michael",
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Gaucher, Nathan",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 986250
+      "salary": 886666,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
-      "team": "SJS",
-      "teamName": "San Jose Sharks",
-      "player": "Dickinson, Sam",
-      "position": "D",
-      "rosterStatus": "Active roster",
-      "salary": 953750
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Myatovic, Nico",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 896667,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
-      "team": "MTL",
-      "teamName": "Montreal Canadiens",
-      "player": "Dobson, Noah",
-      "position": "D",
-      "rosterStatus": "Active roster",
-      "salary": 9500000
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Klepov, Nikita",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
-      "team": "MIN",
-      "teamName": "Minnesota Wild",
-      "player": "Hughes, Quinn",
-      "position": "D",
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Nesterenko, Nikita",
+      "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 7850000
+      "salary": 837500,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Kosick, Noah",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Read, Noah",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Chudzinski, Rian",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "McQueen, Roger",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 1075000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Poehling, Ryan",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 3750000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Colangelo, Sam",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 850000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Pastujov, Sasha",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Washe, Tim",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 812500,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Terry, Troy",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 7000000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Sidorov, Yegor",
+      "position": "F",
+      "rosterStatus": "Non-roster",
+      "salary": 940000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Guité, Émile",
+      "position": "F",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Clang, Calle",
+      "position": "G",
+      "rosterStatus": "Non-roster",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Clara, Damian",
+      "position": "G",
+      "rosterStatus": "Non-roster",
+      "salary": 934166,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Neuenschwander, Elijah",
+      "position": "G",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Peshkov, Gleb",
+      "position": "G",
+      "rosterStatus": "Unsigned draft choice",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Brossoit, Laurent",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 1100000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Dostal, Lukas",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 6500000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Suchanek, Tomas",
+      "position": "G",
+      "rosterStatus": "Non-roster",
+      "salary": 945000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Husso, Ville",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 2200000,
+      "source": "SALARY CAP FILE(1).xlsx"
+    },
+    {
+      "team": "ANA",
+      "teamName": "Anaheim Ducks",
+      "player": "Buteyets, Vyacheslav",
+      "position": "G",
+      "rosterStatus": "Non-roster",
+      "salary": 0,
+      "source": "SALARY CAP FILE(1).xlsx"
     },
     {
       "team": "BOS",
@@ -76,23 +689,8 @@
       "player": "McAvoy, Charlie",
       "position": "D",
       "rosterStatus": "Active roster",
-      "salary": 9500000
-    },
-    {
-      "team": "SJS",
-      "teamName": "San Jose Sharks",
-      "player": "Askarov, Yaroslav",
-      "position": "G",
-      "rosterStatus": "Active roster",
-      "salary": 2000000
-    },
-    {
-      "team": "COL",
-      "teamName": "Colorado Avalanche",
-      "player": "Blackwood, MacKenzie",
-      "position": "G",
-      "rosterStatus": "Active roster",
-      "salary": 5250000
+      "salary": 9500000,
+      "source": "FDA keeper carryover"
     },
     {
       "team": "BOS",
@@ -100,7 +698,80 @@
       "player": "Hagens, James",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 986250
+      "salary": 986250,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "CBJ",
+      "teamName": "Columbus Blue Jackets",
+      "player": "Fantilli, Adam",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 0,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "COL",
+      "teamName": "Colorado Avalanche",
+      "player": "Blackwood, MacKenzie",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 5250000,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "MIN",
+      "teamName": "Minnesota Wild",
+      "player": "Hughes, Quinn",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 7850000,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "MTL",
+      "teamName": "Montreal Canadiens",
+      "player": "Dobson, Noah",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 9500000,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "PHI",
+      "teamName": "Philadelphia Flyers",
+      "player": "Michkov, Matvei",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 950000,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Dickinson, Sam",
+      "position": "D",
+      "rosterStatus": "Active roster",
+      "salary": 953750,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Misa, Michael",
+      "position": "F",
+      "rosterStatus": "Active roster",
+      "salary": 986250,
+      "source": "FDA keeper carryover"
+    },
+    {
+      "team": "SJS",
+      "teamName": "San Jose Sharks",
+      "player": "Askarov, Yaroslav",
+      "position": "G",
+      "rosterStatus": "Active roster",
+      "salary": 2000000,
+      "source": "FDA keeper carryover"
     },
     {
       "team": "WSH",
@@ -108,7 +779,8 @@
       "player": "Protas, Ilya",
       "position": "F",
       "rosterStatus": "Active roster",
-      "salary": 932500
+      "salary": 932500,
+      "source": "FDA keeper carryover"
     }
   ]
 }
