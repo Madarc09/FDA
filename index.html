@@ -461,7 +461,7 @@
 
       <section class="page" id="page-draft">
         <div class="page-heading">
-          <div><p class="eyebrow">DRAFT ROOM</p><h1>Build around starts, value and roster fit</h1><p>Your ten keepers and two protected minors are built in. Draft additions remain saved on this device.</p></div>
+          <div><p class="eyebrow">ROSTER EXPERIMENT CENTRE</p><h1>Build, remove, rebudget and compare every roster idea</h1><p>Your keepers stay locked. Every player you add or remove instantly recalculates the cap plan, open-slot prices and five-player shortlist.</p></div>
           <button class="text-button danger" id="resetRoster">Restore keeper roster</button>
         </div>
 
@@ -492,12 +492,23 @@
           <div class="budget-planner-controls">
             <div><p class="eyebrow">OPEN-SLOT VARIATIONS</p><h3>Price every empty 12F / 8D / 3G roster spot</h3></div>
             <div class="budget-plan-buttons">
-              <button class="budget-plan-button active" data-budget-plan="minimum" type="button">League minimum</button>
+              <button class="budget-plan-button active" data-budget-plan="minimum" type="button">Max flexibility</button>
               <button class="budget-plan-button" data-budget-plan="balanced" type="button">Balanced</button>
-              <button class="budget-plan-button" data-budget-plan="starters" type="button">Starter heavy</button>
+              <button class="budget-plan-button" data-budget-plan="starters" type="button">Nightly starters</button>
+              <button class="budget-plan-button" data-budget-plan="oneStar" type="button">One superstar</button>
+              <button class="budget-plan-button" data-budget-plan="twoStars" type="button">Two premium</button>
+              <button class="budget-plan-button" data-budget-plan="forwards" type="button">Forward heavy</button>
+              <button class="budget-plan-button" data-budget-plan="defence" type="button">Defence heavy</button>
+              <button class="budget-plan-button" data-budget-plan="goalies" type="button">Goalie premium</button>
+              <button class="budget-plan-button" data-budget-plan="depth" type="button">Mid-tier depth</button>
             </div>
           </div>
           <div class="budget-plan-summary" id="budgetPlanSummary"></div>
+          <div class="salary-master-tools">
+            <div><p class="eyebrow">SALARY MASTER</p><strong>Use the complete static master for real player recommendations</strong><small id="salaryImportStatus">The packaged file will be checked automatically.</small></div>
+            <label class="salary-import-button">Import JSON or CSV<input id="salaryMasterImport" type="file" accept=".json,.csv,application/json,text/csv" /></label>
+            <button class="text-button" id="clearSalaryImport" type="button">Use packaged file</button>
+          </div>
         </section>
 
         <div class="draft-layout">
@@ -505,19 +516,30 @@
             <div class="section-heading"><div><p class="eyebrow">PROJECTED ROSTER</p><h2>Your 23-player build</h2></div><span class="status-badge">Draft additions are removable</span></div>
             <div id="rosterSlots"></div>
           </section>
-          <section class="panel assistant-card">
-            <div class="section-heading compact"><div><p class="eyebrow">ROSTER ASSISTANT</p><h2>Best next fit</h2></div></div>
-            <div id="assistantRecommendation" class="assistant-recommendation"><p>Add players to the roster and FDA will identify the biggest positional need.</p></div>
-            <div class="assistant-controls">
-              <label>Target position<select id="assistantPosition"><option value="AUTO">Automatic</option><option value="F">Forward</option><option value="D">Defence</option><option value="G">Goalie</option></select></label>
-              <label>Strategy<select id="assistantStrategy"><option value="FPG">Best FP/G</option><option value="RECENT">Recent form</option><option value="BALANCED">Balanced roster</option></select></label>
-            </div>
-            <button class="primary-button full" id="runAssistant">Find best available player</button>
+          <section class="panel assistant-card slot-assistant-card">
+            <div class="section-heading compact"><div><p class="eyebrow">SELECTED ROSTER SPOT</p><h2>Five players who fit this role</h2></div><span class="status-badge" id="selectedSlotBadge">SELECT A SLOT</span></div>
+            <p class="assistant-explainer">Press an empty roster spot on the left. The shortlist uses that exact position and spending limit, while preserving league-minimum money for every other empty spot.</p>
+            <div class="selected-slot-budget" id="selectedSlotBudget"></div>
+            <label class="assistant-sort-label">Rank the five fits by
+              <select id="recommendationSort">
+                <option value="FPG">Highest FP/G</option>
+                <option value="VALUE">Best FP/G per $1M</option>
+                <option value="RECENT">Recent form</option>
+                <option value="TOTAL">Season fantasy points</option>
+              </select>
+            </label>
+            <div id="slotRecommendations" class="slot-recommendations"></div>
           </section>
         </div>
 
         <section class="panel draft-pool">
-          <div class="section-heading"><div><p class="eyebrow">AVAILABLE PLAYER POOL</p><h2>Draft directly from the live rankings</h2></div><button class="text-button" data-route="players">Open full database</button></div>
+          <div class="section-heading"><div><p class="eyebrow">AVAILABLE PLAYER POOL</p><h2>Search the market and test any roster move</h2></div><button class="text-button" data-route="players">Open full database</button></div>
+          <div class="draft-pool-controls">
+            <label class="draft-search-label">Player or team<input id="draftSearch" type="search" placeholder="Search player or NHL team" /></label>
+            <label>Position<select id="draftPosition"><option value="ALL">All positions</option><option value="F">Forwards</option><option value="D">Defence</option><option value="G">Goalies</option></select></label>
+            <label>Sort<select id="draftSort"><option value="FPG">Highest FP/G</option><option value="VALUE">Best FP/G per $1M</option><option value="RECENT">Recent form</option><option value="SALARY_LOW">Lowest salary</option><option value="SALARY_HIGH">Highest salary</option></select></label>
+            <label class="form-check draft-fit-check"><input id="draftFitsSlot" class="form-check-input" type="checkbox" /><span class="form-check-label">Only players who fit selected slot</span></label>
+          </div>
           <div class="draft-list" id="draftList"></div>
         </section>
       </section>

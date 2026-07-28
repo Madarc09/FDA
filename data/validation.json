@@ -1,7 +1,32 @@
 {
-  "checkedAt": null,
+  "checkedAt": "2026-07-28T20:21:19.872Z",
   "season": "20252026",
   "passed": false,
-  "checks": [],
-  "message": "Run the included GitHub Action to validate the full event sync against Crosby, Malkin and Cowan."
+  "checks": [
+    {
+      "id": 8471675,
+      "name": "Sidney Crosby",
+      "fantasyPoints": 403,
+      "actual": null,
+      "difference": null,
+      "passed": false
+    },
+    {
+      "id": 8471215,
+      "name": "Evgeni Malkin",
+      "fantasyPoints": 314.6,
+      "actual": null,
+      "difference": null,
+      "passed": false
+    },
+    {
+      "id": 8484153,
+      "name": "Easton Cowan",
+      "fantasyPoints": 184.1,
+      "actual": null,
+      "difference": null,
+      "passed": false
+    }
+  ],
+  "message": "At least one verified Fantrax total did not match. Inspect the category and game audit before treating the sync as exact."
 }

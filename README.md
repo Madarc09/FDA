@@ -91,17 +91,24 @@ Environment variables:
 - `NHL_SYNC_CONCURRENCY` - Gamecenter synchronization concurrency
 
 
-## Salary-cap roster planning (v7)
+## Roster Experiment Centre (v8)
 
-- Uses the official 2026-27 NHL upper limit of **$104,000,000** and league minimum of **$850,000**.
-- The Draft Room always preserves the locked keeper roster and enforces exactly **12 forwards, 8 defencemen and 3 goalies**.
-- Signed cap, planning cap and remaining cap are displayed separately. Adam Fantilli remains unsigned in the master and defaults to the previously established **$12,000,000 planning estimate**, which is editable on the page.
-- Empty roster spots can be priced with three modes: **League minimum**, **Balanced roster**, and **Starter heavy**. The buttons only change estimates in open spots; they never add, remove or replace keepers.
-- Protected minors remain outside the 23-player active roster and active fantasy cap display.
-- Salary matching supports `data/SALARY_CAP_SPACE.json` as either an array or an object containing `records`, `players`, `salaries`, or `data`. It matches normalized team, player name and F/D/G position; `NAS`/`NSH` and `WAS`/`WSH` are normalized.
-- A `$0` master entry is shown as **Unsigned**, never as a free player.
+- Uses the 2026-27 NHL upper limit of **$104,000,000** and a planning minimum salary of **$850,000**.
+- The ten locked keepers always remain on the roster. Adam Fantilli remains unsigned in the supplied salary data and uses the editable **$12,000,000 planning estimate** already established for this project.
+- Active roster construction is fixed at **12 forwards, 8 defencemen and 3 goalies**. Hagens and Protas remain protected minors outside the 23-player active cap.
+- Every added or removed player immediately recalculates cap used, cap remaining, open positions, every open-slot estimate and the five-player recommendation list.
+- Nine open-slot allocation models are included: **Maximum flexibility, Balanced, Nightly starters, One superstar, Two premium players, Forward heavy, Defence heavy, Goalie premium, and Mid-tier depth**.
+- Each empty roster position can be selected independently. Its generated price can be overridden with a custom maximum without changing the other openings.
+- The selected opening displays the five best signed players who fit its position and current spending limit. Recommendations can be ranked by **fantasy points per game, FP/G per $1M, recent FP/G, or total fantasy points**.
+- The full draft market can be searched and filtered by position, sorted by the same performance/value measures, and limited to players who fit the currently selected opening.
+- Players can be added directly from either the five-player shortlist or the complete market and removed directly from their roster spot. A selection is blocked if it exceeds the cap, fills an already-complete position, or prevents the remaining openings from receiving at least the league-minimum planning amount.
+- A `$0` salary-master entry is always treated as **Unsigned**, never as a free player.
 
-The file supplied in this conversation was the salary-master completion note rather than the complete 2,197-row data export, so this package embeds the confirmed keeper/minor records and is already wired to accept the complete `SALARY_CAP_SPACE.json` at the same path without code changes.
+### Loading the complete salary master
+
+The completion note supplied with this project describes a 2,197-record master, but it does not contain those records. This ZIP therefore retains the confirmed keeper/minor subset and adds an on-page importer for the complete **JSON or CSV** export. Importing it activates the full draft market and recommendation engine immediately and stores the imported master in the current browser.
+
+The page also continues to read `data/SALARY_CAP_SPACE.json` automatically. Replacing that file with the complete export makes the master available to every deployment without requiring a browser import. Supported JSON shapes are a plain array or an object containing `records`, `players`, `salaries`, or `data`. Matching uses normalized team, player name and F/D/G position; `NAS`/`NSH` and `WAS`/`WSH` are normalized.
 
 Validate the bundled salary file with:
 
