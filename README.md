@@ -2,9 +2,23 @@
 
 FDA is a mobile-first NHL fantasy draft assistant built around official NHL data and the league's custom Fantrax scoring system.
 
-## Version 4 additions
+## Version 5 additions
 
-The new **Calendar Fit** page imports every NHL team's official schedule and calculates:
+The new **Historical** page builds the first layer of the player-comparable engine from official NHL historical reports. It includes:
+
+- all-time career points, goals, assists and games-played leaders;
+- the highest-scoring, highest-goal and highest-assist single seasons;
+- career goalie wins and shutouts plus the winningest goalie seasons;
+- career and single-season scoring leaders among defencemen;
+- official NHL player headshots beside historical names;
+- selectable career profiles with season-by-season regular-season totals;
+- explicit data-coverage notes so unavailable old-era statistics are never treated as zero.
+
+Historical data loads through the same-origin Vercel route at `/api/historical`. The page does not ship with a hand-picked list of legends or copied rankings; it requests and sorts official NHL records.
+
+## Calendar Fit
+
+The **Calendar Fit** page imports every NHL team's official schedule and calculates:
 
 - all 496 two-team schedule combinations;
 - the best and worst pairs for avoiding same-night conflicts;
@@ -21,6 +35,7 @@ The page never ranks a partial schedule. It requires at least 1,200 unique offic
 ## Data sources
 
 - Official NHL current rosters and season reports
+- Official NHL historical career and single-season reports
 - Official NHL Gamecenter game data
 - Official NHL club schedule-season endpoints
 - Official NHL EDGE tracking data on demand
@@ -33,9 +48,9 @@ Fantasy points are calculated from raw categories using the saved league scoring
 1. Upload the contents of this folder to the root of the `FDA` GitHub repository.
 2. Import the repository into Vercel. No build command is required.
 3. In GitHub, open **Actions -> Sync NHL fantasy data -> Run workflow**.
-4. The workflow creates the exact fantasy database and the cached 2026-27 schedule database, commits them to the repository, and triggers a Vercel redeploy.
+4. The workflow creates the exact fantasy database and the cached schedule database, commits them to the repository, and triggers a Vercel redeploy.
 
-The Calendar page first reads `data/calendar-analysis.json`. If that file has not been generated yet, it uses the same-origin Vercel route at `/api/calendar`, which retrieves all 32 official NHL schedules and caches the result.
+The Historical page is on-demand and does not require an additional GitHub Action. Vercel caches its official NHL response for six hours.
 
 ## Commands
 

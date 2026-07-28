@@ -36,6 +36,7 @@
       <button class="nav-link active" data-route="dashboard"><span>⌂</span><b>Dashboard</b></button>
       <button class="nav-link" data-route="players"><span>◉</span><b>Players</b></button>
       <button class="nav-link" data-route="lab"><span>⌁</span><b>Player Lab</b></button>
+      <button class="nav-link" data-route="history"><span>◆</span><b>Historical</b></button>
       <button class="nav-link" data-route="calendar"><span>▤</span><b>Calendar Fit</b></button>
       <button class="nav-link" data-route="draft"><span>▦</span><b>Draft Room</b></button>
       <button class="nav-link" data-route="rules"><span>⚙</span><b>Scoring</b></button>
@@ -235,6 +236,76 @@
       </section>
 
 
+      <section class="page" id="page-history">
+        <div class="page-heading history-heading">
+          <div>
+            <p class="eyebrow">HISTORICAL NHL</p>
+            <h1>History’s best, pulled from the official record.</h1>
+            <p>Career leaders, greatest single seasons, goalie royalty and defence legends — the foundation for true player comparables.</p>
+          </div>
+          <button class="secondary-button" id="refreshHistory">Refresh history</button>
+        </div>
+
+        <section class="panel history-source-bar">
+          <div>
+            <strong id="historySource">Official NHL historical reports are ready to load.</strong>
+            <small id="historyUpdated">No historical request has run yet.</small>
+          </div>
+          <span class="status-badge" id="historyStatus">Waiting</span>
+        </section>
+
+        <div class="history-record-grid" id="historyRecords">
+          <article class="panel history-record-card"><span>Career points</span><strong>—</strong><small>Loading record holder</small></article>
+          <article class="panel history-record-card"><span>Career goals</span><strong>—</strong><small>Loading record holder</small></article>
+          <article class="panel history-record-card"><span>Single-season points</span><strong>—</strong><small>Loading record holder</small></article>
+          <article class="panel history-record-card"><span>Goalie wins</span><strong>—</strong><small>Loading record holder</small></article>
+        </div>
+
+        <div class="history-tabs" role="tablist" aria-label="Historical leaderboards">
+          <button class="history-tab active" data-history-tab="career">Career greats</button>
+          <button class="history-tab" data-history-tab="seasons">Greatest seasons</button>
+          <button class="history-tab" data-history-tab="goalies">Goalies</button>
+          <button class="history-tab" data-history-tab="defence">Defence</button>
+        </div>
+
+        <section class="panel history-main-card">
+          <div class="section-heading history-section-heading">
+            <div>
+              <p class="eyebrow" id="historyTableEyebrow">ALL-TIME SCORING</p>
+              <h2 id="historyTableTitle">Career points leaders</h2>
+              <p id="historyTableDescription">Regular-season totals across NHL history.</p>
+            </div>
+            <span class="source-chip">Official NHL</span>
+          </div>
+          <div class="history-table-head" id="historyTableHead"></div>
+          <div class="history-leader-list" id="historyLeaderList"><div class="calendar-loading">Open Historical to load the official NHL archive.</div></div>
+        </section>
+
+        <div class="history-secondary-grid">
+          <section class="panel history-list-card">
+            <div class="section-heading compact"><div><p class="eyebrow" id="historySideOneEyebrow">GOAL SCORERS</p><h2 id="historySideOneTitle">Career goals</h2></div></div>
+            <div class="history-mini-list" id="historySideOne"></div>
+          </section>
+          <section class="panel history-list-card">
+            <div class="section-heading compact"><div><p class="eyebrow" id="historySideTwoEyebrow">PLAYMAKERS</p><h2 id="historySideTwoTitle">Career assists</h2></div></div>
+            <div class="history-mini-list" id="historySideTwo"></div>
+          </section>
+        </div>
+
+        <section class="panel historical-coverage-card">
+          <div class="section-heading">
+            <div><p class="eyebrow">COMPARABLES FOUNDATION</p><h2>What the historical engine can compare honestly</h2></div>
+            <span class="status-badge">Era-aware</span>
+          </div>
+          <div class="history-coverage-grid">
+            <article><strong>Full-history scoring</strong><span>Goals, assists, points, games and official season records across the NHL archive.</span></article>
+            <article><strong>Modern peripherals</strong><span>Shots, hits, blocks, faceoffs and time on ice only when that statistic was actually tracked.</span></article>
+            <article><strong>NHL EDGE era</strong><span>Skating and puck-tracking comparisons from 2021–22 onward.</span></article>
+            <article><strong>No fake zeroes</strong><span>Unavailable historical categories will be marked unavailable, never silently treated as zero.</span></article>
+          </div>
+        </section>
+      </section>
+
       <section class="page" id="page-calendar">
         <div class="page-heading calendar-heading">
           <div>
@@ -415,7 +486,8 @@
           <section class="panel source-card"><span class="source-number">03</span><div><p class="eyebrow">OFFICIAL NHL ASSETS</p><h2>Headshots and team logos</h2><p>Player images and team marks are loaded beside names using NHL player IDs and team abbreviations.</p><code>assets.nhle.com</code></div><span class="source-state live">LIVE</span></section>
           <section class="panel source-card"><span class="source-number">04</span><div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Advanced tracking on demand</h2><p>Speed, distance, shot profile and zone-time data load from NHL EDGE inside the Player Laboratory.</p><code>api-web.nhle.com/v1/edge</code></div><span class="source-state live">ON DEMAND</span></section>
           <section class="panel source-card"><span class="source-number">05</span><div><p class="eyebrow">OFFICIAL NHL SCHEDULE</p><h2>Team calendar and game dates</h2><p>Every club schedule is joined by game ID to measure overlap, sparse nights, back-to-backs and fantasy-playoff coverage.</p><code>api-web.nhle.com/v1/club-schedule-season</code></div><span class="source-state live">CACHED</span></section>
-          <section class="panel source-card"><span class="source-number">06</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
+          <section class="panel source-card"><span class="source-number">06</span><div><p class="eyebrow">OFFICIAL NHL HISTORY</p><h2>Career and single-season records</h2><p>All-time skater and goalie leaderboards come from the same NHL Stats historical archive and remain separate from modern-only categories.</p><code>api.nhle.com/stats/rest/en</code></div><span class="source-state live">ON DEMAND</span></section>
+          <section class="panel source-card"><span class="source-number">07</span><div><p class="eyebrow">FDA DERIVED DATA</p><h2>Fantasy score and market signal</h2><p>Fantasy points, FP/G, recent form and roster recommendations are calculated by FDA from the stored raw data.</p><code>scripts/sync-nhl.mjs</code></div><span class="source-state derived">DERIVED</span></section>
         </div>
         <section class="panel sync-status-card">
           <div class="section-heading"><div><p class="eyebrow">CURRENT SESSION</p><h2>Import diagnostics</h2></div><span class="status-badge" id="diagnosticBadge">Waiting</span></div>
@@ -428,6 +500,7 @@
       <button class="mobile-link active" data-route="dashboard"><span>⌂</span><small>Home</small></button>
       <button class="mobile-link" data-route="players"><span>◉</span><small>Players</small></button>
       <button class="mobile-link" data-route="lab"><span>⌁</span><small>Lab</small></button>
+      <button class="mobile-link" data-route="history"><span>◆</span><small>History</small></button>
       <button class="mobile-link" data-route="calendar"><span>▤</span><small>Calendar</small></button>
       <button class="mobile-link" data-route="draft"><span>▦</span><small>Draft</small></button>
       <button class="mobile-link" data-route="rules"><span>⚙</span><small>Rules</small></button>

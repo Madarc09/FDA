@@ -59,6 +59,7 @@ const state = {
     window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score',
     pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0
   },
+  history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map() },
   route: 'dashboard'
 };
 
@@ -429,6 +430,7 @@ function renderAll() {
   renderDraft();
   renderRules();
   renderCalendar();
+  renderHistory();
   renderDataMode();
   renderDiagnostics();
 }
@@ -1112,12 +1114,196 @@ function renderCalendar() {
   renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderWeeklyCalendar();
 }
 
+
+function historyNumber(value, digits = 0) {
+  return number(value).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function historyRecordCard(label, player, statKey, suffix = '') {
+  if (!player) return `<article class="panel history-record-card"><span>${safeText(label)}</span><strong>—</strong><small>Record unavailable</small></article>`;
+  const stat = statKey === 'savePct' ? historyNumber(player[statKey] * (player[statKey] <= 1 ? 100 : 1), 1) : historyNumber(player[statKey], statKey === 'pointsPerGame' ? 2 : 0);
+  const context = player.seasonId ? `${player.name} · ${player.seasonLabel}` : player.name;
+  return `<button class="panel history-record-card" data-history-player="${player.id}" type="button">
+    <span>${safeText(label)}</span><strong>${stat}${safeText(suffix)}</strong><small>${safeText(context)}</small>
+    <img src="${safeText(player.headshot)}" alt="" onerror="this.style.display='none'" />
+  </button>`;
+}
+
+function historyTabConfig() {
+  const leaders = state.history.data?.leaders || {};
+  if (state.history.tab === 'seasons') return {
+    eyebrow:'GREATEST SINGLE SEASONS', title:'Highest-scoring seasons in NHL history', description:'Each row is one regular season, not a career total.',
+    main:leaders.seasonPoints || [], sideOne:leaders.seasonGoals || [], sideTwo:leaders.seasonAssists || [],
+    sideOneEyebrow:'GOAL EXPLOSIONS', sideOneTitle:'Most goals in a season', sideTwoEyebrow:'PLAYMAKING PEAKS', sideTwoTitle:'Most assists in a season', type:'skater', sideOneKey:'goals', sideTwoKey:'assists'
+  };
+  if (state.history.tab === 'goalies') return {
+    eyebrow:'GOALTENDING ROYALTY', title:'Career wins leaders', description:'Regular-season goaltending leaders from the official NHL archive.',
+    main:leaders.goalieCareerWins || [], sideOne:leaders.goalieCareerShutouts || [], sideTwo:leaders.goalieSeasonWins || [],
+    sideOneEyebrow:'CLEAN SHEETS', sideOneTitle:'Career shutouts', sideTwoEyebrow:'WINNINGEST SEASONS', sideTwoTitle:'Wins in one season', type:'goalie', sideOneKey:'shutouts', sideTwoKey:'wins'
+  };
+  if (state.history.tab === 'defence') {
+    const durability = [...(leaders.defenseCareer || [])].sort((a,b)=>b.gamesPlayed-a.gamesPlayed).slice(0,12);
+    return {
+      eyebrow:'DEFENCE LEGENDS', title:'Career points by defencemen', description:'Offensive production from the blue line across NHL history.',
+      main:leaders.defenseCareer || [], sideOne:leaders.defenseSeasons || [], sideTwo:durability,
+      sideOneEyebrow:'PEAK SEASONS', sideOneTitle:'Best scoring seasons by D', sideTwoEyebrow:'LONGEVITY', sideTwoTitle:'Games played by D', type:'skater', sideOneKey:'points', sideTwoKey:'gamesPlayed'
+    };
+  }
+  return {
+    eyebrow:'ALL-TIME SCORING', title:'Career points leaders', description:'Regular-season totals across NHL history.',
+    main:leaders.careerPoints || [], sideOne:leaders.careerGoals || [], sideTwo:leaders.careerAssists || [],
+    sideOneEyebrow:'GOAL SCORERS', sideOneTitle:'Career goals', sideTwoEyebrow:'PLAYMAKERS', sideTwoTitle:'Career assists', type:'skater', sideOneKey:'goals', sideTwoKey:'assists'
+  };
+}
+
+function renderHistoryTable(rows, type) {
+  const head = $('#historyTableHead');
+  const list = $('#historyLeaderList');
+  if (!head || !list) return;
+  if (type === 'goalie') {
+    head.innerHTML = '<span>Player</span><span>GP</span><span>W</span><span>SO</span><span>SV%</span><span>GAA</span>';
+    list.innerHTML = rows.slice(0,25).map((player,index)=>{
+      const savePct = player.savePct ? (player.savePct <= 1 ? player.savePct * 100 : player.savePct) : 0;
+      return `<button class="history-row" data-history-player="${player.id}" type="button">
+        <span class="history-rank">${index+1}</span><img src="${safeText(player.headshot)}" alt="" onerror="this.style.opacity=.08" />
+        <span class="history-player-copy"><strong>${safeText(player.name)}</strong><small>${safeText(player.seasonId ? player.seasonLabel : 'Career')} · ${safeText(player.team || 'NHL')}</small></span>
+        <span class="history-row-stats"><span><b>${historyNumber(player.gamesPlayed)}</b><small>GP</small></span><span><b>${historyNumber(player.wins)}</b><small>W</small></span><span><b>${historyNumber(player.shutouts)}</b><small>SO</small></span><span><b>${savePct ? historyNumber(savePct,1) : '—'}</b><small>SV%</small></span><span><b>${player.goalsAgainstAverage ? historyNumber(player.goalsAgainstAverage,2) : '—'}</b><small>GAA</small></span></span>
+        <span class="history-primary-stat"><strong>${historyNumber(player.wins)}</strong><small>wins</small></span>
+      </button>`;
+    }).join('') || '<div class="history-error">No goalie history was returned.</div>';
+    return;
+  }
+  head.innerHTML = '<span>Player</span><span>GP</span><span>G</span><span>A</span><span>PTS</span><span>P/GP</span>';
+  list.innerHTML = rows.slice(0,25).map((player,index)=>`<button class="history-row" data-history-player="${player.id}" type="button">
+    <span class="history-rank">${index+1}</span><img src="${safeText(player.headshot)}" alt="" onerror="this.style.opacity=.08" />
+    <span class="history-player-copy"><strong>${safeText(player.name)}</strong><small>${safeText(player.seasonId ? player.seasonLabel : 'Career')} · ${safeText(player.team || 'NHL')} · ${safeText(player.position || '')}</small></span>
+    <span class="history-row-stats"><span><b>${historyNumber(player.gamesPlayed)}</b><small>GP</small></span><span><b>${historyNumber(player.goals)}</b><small>G</small></span><span><b>${historyNumber(player.assists)}</b><small>A</small></span><span><b>${historyNumber(player.points)}</b><small>PTS</small></span><span><b>${historyNumber(player.pointsPerGame,2)}</b><small>P/GP</small></span></span>
+    <span class="history-primary-stat"><strong>${historyNumber(player.points)}</strong><small>points</small></span>
+  </button>`).join('') || '<div class="history-error">No skater history was returned.</div>';
+}
+
+function renderHistoryMiniList(target, rows, key) {
+  if (!target) return;
+  target.innerHTML = rows.slice(0,12).map((player,index)=>{
+    let value = player[key];
+    if (key === 'savePct') value = number(value) <= 1 ? number(value) * 100 : number(value);
+    const digits = ['savePct','goalsAgainstAverage','pointsPerGame'].includes(key) ? (key === 'goalsAgainstAverage' ? 2 : 1) : 0;
+    return `<button class="history-mini-row" data-history-player="${player.id}" type="button"><span>${index+1}</span><img src="${safeText(player.headshot)}" alt="" onerror="this.style.opacity=.08"/><span><strong>${safeText(player.name)}</strong><small>${safeText(player.seasonId ? player.seasonLabel : 'Career')} · ${safeText(player.team || 'NHL')}</small></span><b>${historyNumber(value,digits)}</b></button>`;
+  }).join('') || '<div class="calendar-loading">No records returned.</div>';
+}
+
+function renderHistory() {
+  const source = $('#historySource');
+  if (!source) return;
+  const status = $('#historyStatus');
+  const updated = $('#historyUpdated');
+  if (state.history.status === 'loading') {
+    source.textContent = 'Loading career and single-season leaderboards from NHL.com…';
+    updated.textContent = 'This request runs through the FDA server route.';
+    status.textContent = 'Loading';
+    status.className = 'status-badge';
+    $('#historyLeaderList').innerHTML = '<div class="calendar-loading">Reading the NHL historical archive…</div>';
+    return;
+  }
+  if (state.history.status === 'error' || !state.history.data) {
+    source.textContent = state.history.status === 'error' ? 'Historical data could not be loaded.' : 'Official NHL historical reports are ready to load.';
+    updated.textContent = state.history.error || 'Open this page after deployment to request the official archive.';
+    status.textContent = state.history.status === 'error' ? 'Unavailable' : 'Waiting';
+    status.className = 'status-badge';
+    if (state.history.status === 'error') $('#historyLeaderList').innerHTML = `<div class="history-error">${safeText(state.history.error)}</div>`;
+    return;
+  }
+  const data = state.history.data;
+  source.textContent = data.source || 'Official NHL historical reports';
+  updated.textContent = `Updated ${new Date(data.generatedAt).toLocaleString('en-US')}`;
+  status.textContent = 'Official NHL';
+  status.className = 'status-badge';
+  const records = data.records || {};
+  $('#historyRecords').innerHTML = [
+    historyRecordCard('Career points',records.careerPoints,'points'),
+    historyRecordCard('Career goals',records.careerGoals,'goals'),
+    historyRecordCard('Single-season points',records.seasonPoints,'points'),
+    historyRecordCard('Goalie wins',records.goalieWins,'wins')
+  ].join('');
+  $$('.history-tab').forEach(button=>button.classList.toggle('active',button.dataset.historyTab===state.history.tab));
+  const config = historyTabConfig();
+  $('#historyTableEyebrow').textContent = config.eyebrow;
+  $('#historyTableTitle').textContent = config.title;
+  $('#historyTableDescription').textContent = config.description;
+  $('#historySideOneEyebrow').textContent = config.sideOneEyebrow;
+  $('#historySideOneTitle').textContent = config.sideOneTitle;
+  $('#historySideTwoEyebrow').textContent = config.sideTwoEyebrow;
+  $('#historySideTwoTitle').textContent = config.sideTwoTitle;
+  renderHistoryTable(config.main,config.type);
+  renderHistoryMiniList($('#historySideOne'),config.sideOne,config.sideOneKey);
+  renderHistoryMiniList($('#historySideTwo'),config.sideTwo,config.sideTwoKey);
+}
+
+async function loadHistoricalData({ force = false } = {}) {
+  if (state.history.status === 'loading') return;
+  if (state.history.data && !force) { renderHistory(); return; }
+  state.history.status = 'loading';
+  state.history.error = '';
+  renderHistory();
+  try {
+    const response = await fetch(`/api/historical?t=${Date.now()}`, { cache:'no-store' });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || `${response.status} ${response.statusText}`);
+    if (!payload?.leaders?.careerPoints?.length || !payload?.leaders?.goalieCareerWins?.length) throw new Error('The NHL historical response was incomplete.');
+    state.history.data = payload;
+    state.history.status = 'ready';
+    addDiagnostic('Historical NHL archive', 'Career leaders, single-season records, goalies and defencemen loaded from official NHL reports.', 'ok', 'History ready');
+  } catch (error) {
+    state.history.status = 'error';
+    state.history.error = error.message;
+    addDiagnostic('Historical NHL archive', error.message, 'error', 'Unavailable');
+  }
+  renderHistory();
+}
+
+function inchesLabel(value) {
+  const inches = number(value);
+  if (!inches) return '';
+  return `${Math.floor(inches/12)}′${inches%12}″`;
+}
+
+async function openHistoricalPlayer(id) {
+  const playerId = number(id);
+  if (!playerId) return;
+  const cached = state.history.detailCache.get(playerId);
+  showDialog('Loading historical career…','<div class="calendar-loading">Retrieving the official season-by-season record.</div>','NHL HISTORY');
+  try {
+    let player = cached;
+    if (!player) {
+      const response = await fetch(`/api/historical?playerId=${playerId}&t=${Date.now()}`, { cache:'no-store' });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `${response.status} ${response.statusText}`);
+      player = payload.player;
+      state.history.detailCache.set(playerId,player);
+    }
+    const goalie = String(player.position).toUpperCase() === 'G' || player.seasonTotals.some(row=>row.wins || row.savePct);
+    const location = [player.birthCity,player.birthStateProvince,player.birthCountry].filter(Boolean).join(', ');
+    const meta = [player.position,player.shootsCatches ? `${player.shootsCatches} shot/catch` : '', inchesLabel(player.heightInInches), player.weightInPounds ? `${player.weightInPounds} lb` : ''].filter(Boolean).join(' · ');
+    const header = goalie ? '<span>Season</span><span>Team</span><span>GP</span><span>W</span><span>SO</span><span>SV%</span>' : '<span>Season</span><span>Team</span><span>GP</span><span>G</span><span>A</span><span>PTS</span>';
+    const rows = player.seasonTotals.map(row=>goalie
+      ? `<div class="history-career-row"><span>${safeText(row.seasonLabel)}</span><span>${safeText(row.teamAbbrev || row.team)}</span><span>${historyNumber(row.gamesPlayed)}</span><span>${historyNumber(row.wins)}</span><span>${historyNumber(row.shutouts)}</span><span>${row.savePct ? historyNumber((row.savePct<=1?row.savePct*100:row.savePct),1) : '—'}</span></div>`
+      : `<div class="history-career-row"><span>${safeText(row.seasonLabel)}</span><span>${safeText(row.teamAbbrev || row.team)}</span><span>${historyNumber(row.gamesPlayed)}</span><span>${historyNumber(row.goals)}</span><span>${historyNumber(row.assists)}</span><span>${historyNumber(row.points)}</span></div>`
+    ).join('');
+    $('#dialogTitle').textContent = player.name;
+    $('#dialogEyebrow').textContent = 'OFFICIAL NHL CAREER';
+    $('#dialogBody').innerHTML = `<div class="history-dialog-profile"><img src="${safeText(player.headshot)}" alt="" onerror="this.style.opacity=.08"/><div><strong>${safeText(player.name)}</strong><span>${safeText(meta || 'Historical NHL player')}</span><span>${safeText(location || player.birthDate || '')}</span></div></div><div class="history-career-table"><div class="history-career-row header">${header}</div>${rows || '<div class="history-error">No season totals were returned for this player.</div>'}</div>`;
+  } catch (error) {
+    $('#dialogTitle').textContent = 'Career unavailable';
+    $('#dialogBody').innerHTML = `<div class="history-error">${safeText(error.message)}</div>`;
+  }
+}
+
 function navigate(route) {
   state.route=route;
   $$('.page').forEach(page=>page.classList.toggle('active',page.id===`page-${route}`));
   $$('[data-route]').forEach(button=>button.classList.toggle('active',button.dataset.route===route&&(button.classList.contains('nav-link')||button.classList.contains('mobile-link'))));
   window.scrollTo({top:0,behavior:'smooth'});
-  if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();}
+  if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();} if(route==='history'){renderHistory();if(state.history.status==='idle')loadHistoricalData();}
 }
 
 function openPlayer(id) { state.selectedPlayerId=number(id); navigate('lab'); renderLab(); }
@@ -1127,6 +1313,8 @@ function bindEvents() {
   document.addEventListener('click',event=>{
     const route=event.target.closest('[data-route]')?.dataset.route; if(route)navigate(route);
     const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId)openPlayer(playerId);
+    const historyPlayerId=event.target.closest('[data-history-player]')?.dataset.historyPlayer; if(historyPlayerId)openHistoricalPlayer(historyPlayerId);
+    const historyTab=event.target.closest('[data-history-tab]')?.dataset.historyTab; if(historyTab){state.history.tab=historyTab;renderHistory();}
     const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){ if(state.roster.length>=23)return showDialog('Roster full','<p>The current roster plan contains 23 players. Remove one before adding another.</p>'); if(!state.roster.includes(number(addId)))state.roster.push(number(addId));saveRoster();renderDraft();renderCalendar(); }
     const removeId=event.target.closest('[data-remove-roster]')?.dataset.removeRoster; if(removeId){state.roster=state.roster.filter(id=>id!==number(removeId));saveRoster();renderDraft();renderCalendar();}
     const calendarPair=event.target.closest('[data-calendar-pair]')?.dataset.calendarPair; if(calendarPair){state.calendar.selectedPair=calendarPair.split('-');state.calendar.weekIndex=0;renderCalendar();document.querySelector('.calendar-board-section')?.scrollIntoView({behavior:'smooth',block:'start'});}
@@ -1143,6 +1331,7 @@ function bindEvents() {
   $('#loadEdgeData').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadEdgeDataForPlayer(player);});
   $('#runAssistant').addEventListener('click',()=>renderAssistant(findRecommendation()));
   $('#refreshCalendar').addEventListener('click',()=>loadCalendarData({force:true}));
+  $('#refreshHistory').addEventListener('click',()=>loadHistoricalData({force:true}));
   $('#directCalendarLoad').addEventListener('click',()=>loadCalendarData({force:true,direct:true}));
   $('#calendarSeason').addEventListener('change',event=>{state.calendar.season=event.target.value;state.calendar.data=null;state.calendar.status='idle';state.calendar.visiblePairs=30;loadCalendarData({force:true});});
   $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;recalculateCalendarAnalysis();renderCalendar();});
