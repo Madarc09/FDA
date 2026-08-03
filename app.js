@@ -89,7 +89,7 @@ const state = {
   edgeLoading: new Set(),
   calendar: {
     season: '20262027', data: null, status: 'idle', error: '',
-    window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score',
+    window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score', lookupTeam: storage.getItem('fda-calendar-lookup-team') || 'ANA',
     pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0, teamPlans: [], generatorStatus:'idle', generatorError:''
   },
   history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map(), fantasySeason:'20252026', fantasyPosition:'ALL', fantasyStatus:'idle', fantasyError:'', fantasyCache:new Map() },
@@ -1551,6 +1551,59 @@ function sortedCalendarPairs() {
   return pairs.sort(sorts[state.calendar.sort]||sorts.score);
 }
 
+function populateTeamPairLookup() {
+  const select = $('#teamPairLookup');
+  if (!select) return;
+  const teams = Object.keys(state.calendar.data?.teams || {}).sort();
+  if (!teams.includes(state.calendar.lookupTeam)) state.calendar.lookupTeam = teams[0] || '';
+  select.innerHTML = teams.map(team => `<option value="${team}">${team}</option>`).join('');
+  select.value = state.calendar.lookupTeam;
+}
+
+function teamPairLookupRows() {
+  const selected = state.calendar.lookupTeam;
+  if (!selected || !state.calendar.data?.teams?.[selected]) return [];
+  const range = calendarRange();
+  const selectedDates = new Set(teamDatesForWindow(selected, range));
+  return state.calendar.pairs
+    .filter(pair => pair.teamA === selected || pair.teamB === selected)
+    .map(pair => {
+      const partner = pair.teamA === selected ? pair.teamB : pair.teamA;
+      const partnerDates = new Set(teamDatesForWindow(partner, range));
+      const selectedOnly = [...selectedDates].filter(date => !partnerDates.has(date)).length;
+      const partnerOnly = [...partnerDates].filter(date => !selectedDates.has(date)).length;
+      const differentNights = selectedOnly + partnerOnly;
+      const combinedStarts = selectedDates.size + partnerDates.size;
+      const complementRate = combinedStarts ? differentNights / combinedStarts * 100 : 0;
+      return { pair, partner, selectedGames:selectedDates.size, partnerGames:partnerDates.size, selectedOnly, partnerOnly, differentNights, sameNight:pair.overlap, complementRate };
+    })
+    .sort((a,b) => b.differentNights - a.differentNights || a.sameNight - b.sameNight || b.pair.score - a.pair.score)
+    .slice(0,5);
+}
+
+function renderTeamPairLookup() {
+  const summary = $('#teamPairLookupSummary');
+  const container = $('#teamPairLookupResults');
+  if (!summary || !container) return;
+  const selected = state.calendar.lookupTeam;
+  const rows = teamPairLookupRows();
+  if (!selected || !rows.length) {
+    summary.textContent = 'Select a team after the official schedule loads.';
+    container.innerHTML = '<div class="calendar-loading">No team comparison is available yet.</div>';
+    return;
+  }
+  const best = rows[0];
+  summary.innerHTML = `<strong>${selected}</strong> plays ${best.selectedGames} games in this window. Its best schedule partner is <strong>${best.partner}</strong>: ${best.differentNights} different-night games across the two clubs, ${best.sameNight} same-night dates, and ${best.partnerOnly} games where ${best.partner} plays while ${selected} is off.`;
+  container.innerHTML = rows.map((row,index) => `<button class="team-pair-lookup-row" data-calendar-pair="${pairKey(row.pair)}" type="button">
+    <span class="team-pair-lookup-rank">${index+1}</span>
+    <span class="team-pair-lookup-team">${pairLogos(row.pair)}<span><strong>${selected} + ${row.partner}</strong><small>${fmt(row.complementRate,1)}% of combined team-games avoid a same-night conflict</small></span></span>
+    <span><b>${row.differentNights}</b><small>different-night games</small></span>
+    <span><b>${row.sameNight}</b><small>same-night dates</small></span>
+    <span><b>${row.partnerOnly}</b><small>${row.partner} while ${selected} off</small></span>
+    <span><b>${row.selectedOnly}</b><small>${selected} while ${row.partner} off</small></span>
+  </button>`).join('');
+}
+
 function renderStarPairs() {
   const container=$('#starPairGrid');
   if(!state.players.length){container.innerHTML='<div class="calendar-loading">The player directory must load before FDA can attach stars to team pairings.</div>';return;}
@@ -1819,7 +1872,7 @@ function renderCalendar() {
   $('#calendarSparseLabel').textContent=`${state.calendar.threshold} games or fewer`;
   if(state.calendar.status==='loading'){
     source.textContent='Loading all 32 official NHL team schedules and deduplicating games...';
-    ['#bestPairSpotlight','#worstPairSpotlight','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#keeperPartnerGrid','#teamPlanResults','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
+    ['#bestPairSpotlight','#worstPairSpotlight','#teamPairLookupResults','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#keeperPartnerGrid','#teamPlanResults','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
     return;
   }
   if(!calendarDatasetValid(state.calendar.data)){
@@ -1832,10 +1885,10 @@ function renderCalendar() {
   source.textContent=`${data.source} · generated ${new Date(data.generatedAt).toLocaleString('en-US')}`;
   $('#calendarGameCount').textContent=data.metadata.gameCount.toLocaleString('en-US'); $('#calendarDateRange').textContent=`${compactDate(data.metadata.startDate)} - ${compactDate(data.metadata.endDate)}`;
   $('#calendarPairCount').textContent=state.calendar.pairs.length.toLocaleString('en-US'); $('#calendarSparseDates').textContent=sparseDates; $('#calendarBestCoverage').textContent=state.calendar.pairs[0]?.coverage||'-';
-  populateCalendarTeamFilter();
+  populateCalendarTeamFilter(); populateTeamPairLookup();
   const best=sortedCalendarPairs()[0]||state.calendar.pairs[0], worst=[...state.calendar.pairs].sort((a,b)=>a.score-b.score)[0];
   renderPairSpotlight($('#bestPairSpotlight'),best,'BEST TWO-TEAM FIT'); renderPairSpotlight($('#worstPairSpotlight'),worst,'WORST TWO-TEAM FIT');
-  renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderKeeperPartners(); renderTeamPlans(); renderWeeklyCalendar();
+  renderTeamPairLookup(); renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderKeeperPartners(); renderTeamPlans(); renderWeeklyCalendar();
 }
 
 
@@ -2221,6 +2274,7 @@ function bindEvents() {
   $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
   $('#offNightThreshold').addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
   $('#calendarTeam').addEventListener('change',event=>{state.calendar.focusTeam=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
+  $('#teamPairLookup').addEventListener('change',event=>{state.calendar.lookupTeam=event.target.value;storage.setItem('fda-calendar-lookup-team',state.calendar.lookupTeam);renderCalendar();});
   $('#pairSort').addEventListener('change',event=>{state.calendar.sort=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
   $('#loadMorePairs').addEventListener('click',()=>{state.calendar.visiblePairs+=30;renderPairRankings();});
   $('#rosterFitPosition').addEventListener('change',()=>renderRosterFit());

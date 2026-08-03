@@ -375,6 +375,19 @@
           </section>
         </div>
 
+        <section class="panel calendar-section team-pair-lookup-section">
+          <div class="section-heading">
+            <div><p class="eyebrow">CHECK ANY PLAYER'S TEAM</p><h2>Top five schedule partners for one NHL team</h2></div>
+            <label class="compact-control">Player's NHL team
+              <select id="teamPairLookup"><option value="ANA">ANA</option></select>
+            </label>
+          </div>
+          <p class="calendar-explainer">Choose the NHL team of the player you are checking. The five best partners are ordered by the most games played on different nights, then the fewest same-night conflicts.</p>
+          <div class="roster-fit-summary" id="teamPairLookupSummary">Load the official schedule to compare teams.</div>
+          <div class="team-pair-lookup-head"><span>Pair</span><span>Different nights</span><span>Same night</span><span>Partner while selected off</span><span>Selected while partner off</span></div>
+          <div class="team-pair-lookup-results" id="teamPairLookupResults"><div class="calendar-loading">Schedule comparison will appear here.</div></div>
+        </section>
+
         <section class="panel calendar-section">
           <div class="section-heading">
             <div><p class="eyebrow">SUPERSTAR PAIRINGS</p><h2>Elite players with complementary calendars</h2></div>

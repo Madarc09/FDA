@@ -154,3 +154,8 @@ Validate the packaged salary reference with:
 ```bash
 npm run validate:salaries
 ```
+
+
+## Version 11 — Team Pairing Lookup
+
+Calendar Fit now includes a team selector for checking any player's NHL club. It ranks that team's five best schedule partners by different-night games, then fewest same-night dates. Each result also shows how often the partner plays while the selected team is off and vice versa. Selecting a result opens the existing Monday–Sunday pair calendar.
