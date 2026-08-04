@@ -4,7 +4,7 @@
     "generatedAt": null,
     "source": "Run the included GitHub Action to generate the exact league-wide database.",
     "validation": {
-      "checkedAt": "2026-07-28T20:21:19.872Z",
+      "checkedAt": "2026-08-04T22:55:32.127Z",
       "season": "20252026",
       "passed": false,
       "checks": [

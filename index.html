@@ -164,10 +164,10 @@
           </div>
           <button class="watch-button" id="watchPlayer" title="Add to watchlist">☆</button>
           <div class="profile-score-grid">
-            <article><small>Fantasy points</small><strong id="labFpts">—</strong><span>Calculated</span></article>
+            <article><small>Fantasy points</small><strong id="labFpts">—</strong><span>Current season</span></article>
             <article><small>Fantasy FP/G</small><strong id="labFpg">—</strong><span id="labFpgExact">Exact value</span></article>
-            <article><small>Last 7 days</small><strong id="labRecent">—</strong><span id="labRecentGames">No games loaded</span></article>
-            <article><small>Market signal</small><strong id="labTrend" class="trend-flat">HOLD</strong><span id="labTrendReason">Insufficient sample</span></article>
+            <article><small>Salary</small><strong id="labSalary">—</strong><span id="labSalaryStatus">Static master</span></article>
+            <article><small>Your prediction</small><strong id="labPrediction">—</strong><span id="labPredictionStatus">No prediction saved</span></article>
           </div>
         </section>
 
@@ -180,21 +180,21 @@
         </div>
 
         <div class="lab-panel active" id="lab-overview">
-          <div class="lab-grid">
-            <section class="panel trend-card">
-              <div class="section-heading compact"><div><p class="eyebrow">SEVEN-DAY MARKET</p><h2>Rolling fantasy form</h2></div><span class="status-badge" id="trendConfidence">Live results</span></div>
-              <div class="chart-wrap"><svg id="trendChart" viewBox="0 0 760 260" role="img" aria-label="Recent fantasy points per game chart"></svg></div>
-              <div class="chart-legend"><span><i class="dot recent"></i>Game fantasy points</span><span><i class="dot average"></i>Season FP/G</span></div>
-            </section>
+          <section class="panel player-history-card">
+            <div class="section-heading compact"><div><p class="eyebrow">SEASON-BY-SEASON</p><h2>Last seven NHL seasons</h2></div><span class="status-badge" id="playerHistoryStatus">Loading history</span></div>
+            <p class="history-fpts-note">Fantasy points are recalculated with your current league settings. Event-only bonuses unavailable in older season totals are not invented.</p>
+            <div class="player-history-list" id="playerHistoryList"><div class="empty-state">Loading the official season record…</div></div>
+          </section>
+          <div class="lab-grid lab-grid-clean">
             <section class="panel stat-card">
-              <div class="section-heading compact"><div><p class="eyebrow">RAW NHL STATS</p><h2>Season totals</h2></div></div>
+              <div class="section-heading compact"><div><p class="eyebrow">CURRENT SEASON</p><h2>Raw NHL totals</h2></div></div>
               <div class="raw-stat-grid" id="rawStats"></div>
             </section>
+            <section class="panel intelligence-card">
+              <div class="section-heading compact"><div><p class="eyebrow">PLAYER INTELLIGENCE</p><h2>What the numbers say</h2></div></div>
+              <div class="insight-grid" id="insightGrid"></div>
+            </section>
           </div>
-          <section class="panel intelligence-card">
-            <div class="section-heading"><div><p class="eyebrow">PLAYER INTELLIGENCE</p><h2>What the numbers are saying</h2></div><span class="source-chip">Derived, not copied</span></div>
-            <div class="insight-grid" id="insightGrid"></div>
-          </section>
         </div>
 
         <div class="lab-panel" id="lab-audit">
@@ -221,10 +221,10 @@
         <div class="lab-panel" id="lab-edge">
           <section class="panel edge-card">
             <div class="section-heading">
-              <div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Puck and player tracking</h2></div>
-              <button class="secondary-button" id="loadEdgeData">Load EDGE data</button>
+              <div><p class="eyebrow">OFFICIAL NHL EDGE</p><h2>Performance categories</h2></div>
+              <button class="secondary-button" id="loadEdgeData">Refresh EDGE data</button>
             </div>
-            <p class="edge-intro">Skating speed, skating distance, shot speed, shot location and zone time load only for the selected player so the site does not make hundreds of unnecessary EDGE requests.</p>
+            <p class="edge-intro">Every category shows the player’s positional rank and multiweek direction. Select a category to reveal its top-five comparison, then select a player card to open that Player Lab.</p>
             <div class="edge-status" id="edgeStatus">Select a player and load official NHL EDGE metrics.</div>
             <div class="edge-metric-grid" id="edgeMetrics"></div>
             <details class="edge-details" id="edgeDetails">

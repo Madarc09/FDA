@@ -204,6 +204,10 @@ function makeGoalie(row) {
     position: 'G',
     playerType: 'goalie',
     gamesPlayed: num(row.gamesPlayed),
+    savePct: num(pick(row, ['savePct','savePctg','savePercentage'])),
+    goalsAgainstAverage: num(pick(row, ['goalsAgainstAverage','goalsAgainstAvg','gaa'])),
+    goalSupportAverage: num(pick(row, ['goalsForAverage','goalSupportAverage','goalsForAvg'])),
+    minutesPlayed: num(pick(row, ['timeOnIce','minutesPlayed'])),
     stats,
     currentRoster: false,
     dataQuality: 'official-season-reports'

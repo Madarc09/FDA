@@ -87,6 +87,9 @@ const state = {
   diagnostics: [],
   edgeCache: new Map(),
   edgeLoading: new Set(),
+  edgeExpandedMetric: null,
+  edgeLeaderboardCache: new Map(),
+  edgeLeaderboardLoading: new Set(),
   calendar: {
     season: '20262027', data: null, status: 'idle', error: '',
     window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score', lookupTeam: storage.getItem('fda-calendar-lookup-team') || 'ANA',
@@ -786,15 +789,14 @@ function renderLab() {
   $('#labName').textContent = player.name; $('#labPosition').textContent = player.position; $('#labGames').textContent = `${player.gamesPlayed} GP`;
   $('#labDataQuality').textContent = player.dataQuality === 'exact' ? 'Exact game-event sync · Fantrax validation passed' : player.dataQuality === 'event-sync-unvalidated' ? 'Game-event sync loaded · validation mismatch under audit' : player.dataQuality === 'official-roster' ? 'Official NHL roster · no season games yet' : 'Official NHL season reports · special events pending';
   $('#labFpts').textContent = fmt(player.fantasyPoints,2); $('#labFpg').textContent = fmt(player.fpg,2); $('#labFpgExact').textContent = player.dataQuality === 'exact' ? `${player.fpg.toFixed(4)} exact` : player.gamesPlayed ? `${player.fpg.toFixed(4)} before event sync` : 'No NHL games';
-  $('#labRecent').textContent = player.recentGames ? fmt(player.recentFpg,2) : '—'; $('#labRecentGames').textContent = player.recentGames ? `${player.recentGames} games in 7 days` : 'Game-event sync required';
-  const trendLabel = player.trend === 'up' ? 'RISING' : player.trend === 'down' ? 'FALLING' : 'HOLD';
-  const trendClass = player.trend === 'up' ? 'trend-up' : player.trend === 'down' ? 'trend-down' : 'trend-flat';
-  $('#labTrend').textContent = trendLabel; $('#labTrend').className = trendClass;
-  $('#labTrendReason').textContent = player.recentGames < 2 ? 'Waiting for recent game sample' : `${player.trendDelta >= 0 ? '+' : ''}${fmt(player.trendDelta,2)} vs season FP/G`;
+  $('#labSalary').textContent = number(player.capHit) ? money(player.capHit,true) : player.salaryStatus === 'unsigned' ? 'UNSIGNED' : '—';
+  $('#labSalaryStatus').textContent = player.salaryStatus === 'estimated' ? 'Planning estimate' : player.salaryStatus === 'unsigned' ? 'Static master: unsigned' : 'Static salary master';
+  const prediction = predictionForPlayer(player);
+  $('#labPrediction').textContent = prediction ? fmt(prediction,2) : '—';
+  $('#labPredictionStatus').textContent = prediction ? 'Your projected FP/G' : 'No prediction saved';
   $('#watchPlayer').classList.toggle('active',state.watchlist.has(player.id));
-  renderRawStats(player); renderAudit(player); renderTrendChart(player); renderInsights(player); renderGameLog(player); renderSchedulePlaceholder(player); renderEdgePanel(player);
+  renderRawStats(player); renderAudit(player); renderInsights(player); renderGameLog(player); renderSchedulePlaceholder(player); renderEdgePanel(player); renderPlayerHistory(player);
 }
-
 function rawStatEntries(player) {
   const s = player.stats || {};
   if (player.playerType === 'goalie') return [['GP',player.gamesPlayed],['W',s.wins],['SV',s.saves],['GA',s.goalsAgainst],['SHO',s.shutouts],['1Star',s.firstStars],['G',s.goals],['A',s.assists]];
@@ -803,6 +805,87 @@ function rawStatEntries(player) {
 
 function renderRawStats(player) {
   $('#rawStats').innerHTML = rawStatEntries(player).map(([label,value]) => `<div><small>${label}</small><strong>${number(value).toLocaleString('en-US')}</strong></div>`).join('');
+}
+
+
+function historicalFantasyPoints(row, goalie = false) {
+  if (goalie) {
+    return round(
+      number(row.assists) * number(state.rules.goalie.assists.value) +
+      number(row.goals) * number(state.rules.goalie.goals.value) +
+      number(row.goalsAgainst) * number(state.rules.goalie.goalsAgainst.value) +
+      number(row.saves) * number(state.rules.goalie.saves.value) +
+      number(row.shutouts) * number(state.rules.goalie.shutouts.value) +
+      number(row.wins) * number(state.rules.goalie.wins.value), 2
+    );
+  }
+  return round(
+    number(row.goals) * number(state.rules.skater.goals.value) +
+    number(row.assists) * number(state.rules.skater.assists.value) +
+    number(row.blocks) * number(state.rules.skater.blocks.value) +
+    number(row.faceoffLosses) * number(state.rules.skater.faceoffsLost.value) +
+    number(row.faceoffWins) * number(state.rules.skater.faceoffsWon.value) +
+    number(row.gameWinningGoals) * number(state.rules.skater.gameWinningGoals.value) +
+    number(row.hits) * number(state.rules.skater.hits.value) +
+    number(row.powerPlayPoints) * number(state.rules.skater.powerPlayPoints.value) +
+    number(row.shortHandedPoints) * number(state.rules.skater.shortHandedPoints.value) +
+    number(row.shots) * number(state.rules.skater.shotsOnGoal.value), 2
+  );
+}
+
+async function playerHistoryDetail(player) {
+  const playerId = number(player.id);
+  if (!playerId || playerId < 0) throw new Error('Official NHL history is not available until this keeper is matched to an NHL player ID.');
+  let detail = state.history.detailCache.get(playerId);
+  if (detail) return detail;
+  const response = await fetch(`/api/historical?playerId=${playerId}&t=${Date.now()}`, { cache:'no-store' });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || `${response.status} ${response.statusText}`);
+  detail = payload.player;
+  state.history.detailCache.set(playerId, detail);
+  return detail;
+}
+
+function playerHistoryRows(detail, limit = 7) {
+  const goalie = String(detail.position).toUpperCase() === 'G' || detail.seasonTotals.some(row => row.wins || row.savePct);
+  return {
+    goalie,
+    rows:(detail.seasonTotals || []).slice(0,limit).map(row => {
+      const fantasyPoints = historicalFantasyPoints(row,goalie);
+      return { ...row, fantasyPoints, fantasyFpg:number(row.gamesPlayed) ? fantasyPoints / number(row.gamesPlayed) : 0 };
+    })
+  };
+}
+
+function historySeasonTable(detail, limit = 7, compact = false) {
+  const { goalie, rows } = playerHistoryRows(detail,limit);
+  const header = goalie
+    ? '<span>Season</span><span>Team</span><span>GP</span><span>W</span><span>SO</span><span>GAA</span><span>SV%</span><span>FPTS</span><span>FP/G</span>'
+    : '<span>Season</span><span>Team</span><span>GP</span><span>G</span><span>A</span><span>PTS</span><span>FPTS</span><span>FP/G</span>';
+  const body = rows.map(row => goalie
+    ? `<div class="player-history-row"><span>${safeText(row.seasonLabel)}</span><span>${safeText(row.teamAbbrev || row.team)}</span><span>${historyNumber(row.gamesPlayed)}</span><span>${historyNumber(row.wins)}</span><span>${historyNumber(row.shutouts)}</span><span>${row.goalsAgainstAverage ? historyNumber(row.goalsAgainstAverage,2) : '—'}</span><span>${row.savePct ? historyNumber((row.savePct<=1?row.savePct*100:row.savePct),1) : '—'}</span><strong>${fmt(row.fantasyPoints,1)}</strong><b>${fmt(row.fantasyFpg,2)}</b></div>`
+    : `<div class="player-history-row"><span>${safeText(row.seasonLabel)}</span><span>${safeText(row.teamAbbrev || row.team)}</span><span>${historyNumber(row.gamesPlayed)}</span><span>${historyNumber(row.goals)}</span><span>${historyNumber(row.assists)}</span><span>${historyNumber(row.points)}</span><strong>${fmt(row.fantasyPoints,1)}</strong><b>${fmt(row.fantasyFpg,2)}</b></div>`
+  ).join('');
+  return `<div class="player-history-table ${goalie?'goalie':'skater'} ${compact?'compact':''}"><div class="player-history-row header">${header}</div>${body || '<div class="history-error">No NHL regular-season totals were returned.</div>'}</div>`;
+}
+
+async function renderPlayerHistory(player) {
+  const list = $('#playerHistoryList');
+  const status = $('#playerHistoryStatus');
+  if (!list || !status) return;
+  const requestedId = number(player.id);
+  list.innerHTML = '<div class="calendar-loading">Loading the official season-by-season record…</div>';
+  status.textContent = 'Loading history';
+  try {
+    const detail = await playerHistoryDetail(player);
+    if (number(selectedPlayer()?.id) !== requestedId) return;
+    list.innerHTML = historySeasonTable(detail,7);
+    status.textContent = `${Math.min(7,detail.seasonTotals?.length || 0)} seasons · tracked FPTS`;
+  } catch (error) {
+    if (number(selectedPlayer()?.id) !== requestedId) return;
+    list.innerHTML = `<div class="history-error">${safeText(error.message)}</div>`;
+    status.textContent = 'History unavailable';
+  }
 }
 
 function renderAudit(player) {
@@ -850,46 +933,182 @@ function renderInsights(player) {
 
 
 
+
 function readableMetricKey(value) {
-  return String(value || '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[._-]+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
-    .trim();
+  return String(value || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[._-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase()).trim();
 }
 
-function edgeMetricValue(value, key = '') {
+function edgeMetricValue(value, key = '', format = '') {
   const n = number(value);
-  if (/percent|pct|percentage/i.test(key)) return `${n.toFixed(1)}%`;
-  if (/speed|mph/i.test(key)) return `${n.toFixed(2)} mph`;
-  if (/distance|miles/i.test(key)) return `${n.toFixed(2)} mi`;
+  if (format === 'pct' || /percent|pct|percentage/i.test(key)) return `${(Math.abs(n)<=1?n*100:n).toFixed(1)}%`;
+  if (format === 'mph' || /speed|mph/i.test(key)) return `${n.toFixed(2)} mph`;
+  if (format === 'miles' || /distance|miles/i.test(key)) return `${n.toFixed(2)} mi`;
+  if (format === 'decimal3') return n.toFixed(3);
+  if (format === 'decimal2') return n.toFixed(2);
   return Math.abs(n) >= 100 ? n.toLocaleString('en-US',{maximumFractionDigits:1}) : n.toLocaleString('en-US',{maximumFractionDigits:2});
 }
 
+function edgeSection(cached,key) { return cached?.sections?.find(section=>section.key===key)?.data || null; }
+function normalizedObjectKey(value) { return String(value||'').replace(/[^a-z0-9]/gi,'').toLowerCase(); }
+function deepValue(root,candidates) {
+  const wanted=new Set(candidates.map(normalizedObjectKey));
+  let result;
+  const walk=(value,depth=0)=>{
+    if(result!==undefined||depth>7||value==null)return;
+    if(Array.isArray(value)){for(const item of value)walk(item,depth+1);return;}
+    if(typeof value!=='object')return;
+    for(const [key,child] of Object.entries(value)){
+      if(wanted.has(normalizedObjectKey(key))){result=child;return;}
+      walk(child,depth+1); if(result!==undefined)return;
+    }
+  };
+  walk(root); return result;
+}
+function edgeNumber(value) {
+  if(value==null)return null;
+  if(Number.isFinite(Number(value)))return Number(value);
+  for(const key of ['value','imperial','percentage','pctg','savePctg','mph','miles','count','games','rank','zoneTime']){
+    if(value?.[key]!=null&&Number.isFinite(Number(value[key])))return Number(value[key]);
+  }
+  return null;
+}
+function edgePercentile(value) {
+  const raw=deepValue(value,['percentile','percentileRank']);
+  const n=edgeNumber(raw); return n==null?null:(n<=1?n*100:n);
+}
+function edgeLeagueAverage(value) { return edgeNumber(deepValue(value,['leagueAvg','leagueAverage','average'])); }
+function positionGroupForRank(player){return player.playerType==='goalie'||player.position==='G'?'G':positionGroup(player)==='D'?'D':'F';}
+function positionalSample(player){const group=positionGroupForRank(player);return state.players.filter(item=>positionGroupForRank(item)===group&&number(item.gamesPlayed)>0);}
+function goalieSavePct(player){const saves=number(player.stats?.saves),ga=number(player.stats?.goalsAgainst);return number(player.savePct)||(saves+ga?saves/(saves+ga):0);}
+function goalieGaa(player){return number(player.goalsAgainstAverage)||(player.gamesPlayed?number(player.stats?.goalsAgainst)/number(player.gamesPlayed):0);}
+function goalieGoalDifferential(player){const support=number(player.goalSupportAverage);const gaa=goalieGaa(player);return support&&gaa?support-gaa:0;}
+function metricLocalValue(player,key){
+  const map={savePct:goalieSavePct,gaa:goalieGaa,goalDifferential:goalieGoalDifferential,wins:p=>number(p.stats?.wins),saves:p=>number(p.stats?.saves),shutouts:p=>number(p.stats?.shutouts)};
+  return map[key]?map[key](player):0;
+}
+function metricRank(metric,player){
+  if(metric.localKey){
+    const rows=positionalSample(player).map(item=>({player:item,value:metricLocalValue(item,metric.localKey)})).filter(row=>Number.isFinite(row.value)&&row.value!==0);
+    rows.sort((a,b)=>metric.higherBetter===false?a.value-b.value:b.value-a.value);
+    const index=rows.findIndex(row=>number(row.player.id)===number(player.id));
+    if(index>=0)return {rank:index+1,total:rows.length,approx:false};
+  }
+  if(metric.rank){return {rank:number(metric.rank),total:positionalSample(player).length,approx:false};}
+  if(metric.percentile!=null){
+    const total=Math.max(1,positionalSample(player).length);
+    const percentile=metric.higherBetter===false?100-number(metric.percentile):number(metric.percentile);
+    return {rank:Math.max(1,Math.round((1-percentile/100)*(total-1))+1),total,approx:true};
+  }
+  return {rank:null,total:positionalSample(player).length,approx:true};
+}
+function weeklyGameValues(player,metric){
+  const games=(player.games||[]).filter(game=>game.date||game.gameDate).sort((a,b)=>String(a.date||a.gameDate).localeCompare(String(b.date||b.gameDate)));
+  if(!games.length)return [];
+  const buckets=[];
+  for(let i=Math.max(0,games.length-21);i<games.length;i+=7){
+    const slice=games.slice(i,i+7); if(!slice.length)continue;
+    const stats=slice.map(game=>game.stats||{});
+    let value=0;
+    if(metric.localKey==='savePct'){const saves=stats.reduce((a,x)=>a+number(x.saves),0),ga=stats.reduce((a,x)=>a+number(x.goalsAgainst),0);value=saves+ga?saves/(saves+ga):0;}
+    else if(metric.localKey==='gaa'){value=stats.reduce((a,x)=>a+number(x.goalsAgainst),0)/slice.length;}
+    else if(metric.localKey==='wins')value=stats.reduce((a,x)=>a+number(x.wins),0);
+    else if(metric.localKey==='saves')value=stats.reduce((a,x)=>a+number(x.saves),0);
+    else if(metric.localKey==='shutouts')value=stats.reduce((a,x)=>a+number(x.shutouts),0);
+    else continue;
+    if(Number.isFinite(value))buckets.push(value);
+  }
+  return buckets;
+}
+function deepDatedSeries(root,aliases){
+  const wanted=aliases.map(normalizedObjectKey);const points=[];
+  const walk=(value,depth=0)=>{
+    if(depth>7||value==null)return;
+    if(Array.isArray(value)){value.forEach(item=>walk(item,depth+1));return;}
+    if(typeof value!=='object')return;
+    const date=value.gameDate||value.date||value.gameDateUTC||value.startTimeUTC;
+    if(date){
+      for(const [key,child] of Object.entries(value))if(wanted.some(alias=>normalizedObjectKey(key).includes(alias))){const n=edgeNumber(child);if(n!=null)points.push({date:String(date).slice(0,10),value:n});}
+    }
+    Object.values(value).forEach(child=>walk(child,depth+1));
+  };walk(root);return points.sort((a,b)=>a.date.localeCompare(b.date));
+}
+function weeklyFromPoints(points){const recent=points.slice(-21);const result=[];for(let i=0;i<recent.length;i+=7){const group=recent.slice(i,i+7);if(group.length)result.push(group.reduce((s,x)=>s+x.value,0)/group.length);}return result;}
+function metricTrend(metric,cached,player){
+  let values=weeklyGameValues(player,metric);
+  if(values.length<2&&metric.trendAliases?.length){const points=deepDatedSeries(cached.sections||[],metric.trendAliases);values=weeklyFromPoints(points);}
+  if(values.length<2)return {direction:'flat',weeks:1};
+  const changes=[];for(let i=1;i<values.length;i++){const tolerance=Math.max(.0005,Math.abs(values[i-1])*.015);let delta=values[i]-values[i-1];if(metric.higherBetter===false)delta*=-1;changes.push(delta>tolerance?'up':delta<-tolerance?'down':'flat');}
+  const direction=changes.at(-1)||'flat';let weeks=1;for(let i=changes.length-2;i>=0&&changes[i]===direction;i--)weeks++;
+  return {direction,weeks};
+}
+function edgeTrendMarkup(trend){const symbol=trend.direction==='up'?'↑':trend.direction==='down'?'↓':'━';return `<span class="edge-trend ${trend.direction}"><b>${symbol}</b>${trend.weeks}W</span>`;}
+function rankMarkup(rank){if(!rank.rank)return '<span class="edge-rank unavailable">NO RANK</span>';return `<span class="edge-rank" title="${rank.approx?'Approximate rank derived from NHL EDGE percentile':'Rank calculated from same-position season data'}">${rank.approx?'~':''}#${rank.rank}<small>OF ${rank.total}</small></span>`;}
+
+function buildGoalieEdgeMetrics(cached,player){
+  const detail=edgeSection(cached,'goalie')||{};
+  const stats=detail.stats||deepValue(detail,['stats'])||{};
+  const stat=(keys,fallback=null)=>{const obj=deepValue(stats,keys);const value=edgeNumber(obj);return {obj,value:value==null?fallback:value,percentile:edgePercentile(obj),leagueAvg:edgeLeagueAverage(obj)};};
+  const gaa=stat(['goalsAgainstAvg','goalsAgainstAverage'],goalieGaa(player));
+  const saveObj=deepValue(edgeSection(cached,'savePct')||detail,['savePctg','savePct','savePercentage']);
+  const saveValue=edgeNumber(saveObj)??goalieSavePct(player);
+  const goalDiff=stat(['goalDifferentialPer60','goalDifferential'],goalieGoalDifferential(player));
+  const above900=stat(['gamesAbove900']);
+  const support=stat(['goalSupportAvg','goalSupportAverage'],number(player.goalSupportAverage));
+  const pointPct=stat(['pointPctg','pointPercentage']);
+  return [
+    {id:'gaa',label:'Goals Against Average',value:gaa.value,format:'decimal2',localKey:'gaa',higherBetter:false,percentile:gaa.percentile,leagueAvg:gaa.leagueAvg,trendAliases:['goalsAgainstAvg','goalsAgainstAverage','gaa']},
+    {id:'savePct',label:'Save Percentage',value:saveValue,format:'pct',localKey:'savePct',higherBetter:true,percentile:edgePercentile(saveObj),leagueAvg:edgeLeagueAverage(saveObj),trendAliases:['savePctg','savePct','savePercentage']},
+    {id:'goalDifferential',label:'Goal Differential / 60',value:goalDiff.value,format:'decimal2',localKey:'goalDifferential',higherBetter:true,percentile:goalDiff.percentile,leagueAvg:goalDiff.leagueAvg,trendAliases:['goalDifferentialPer60','goalDifferential']},
+    {id:'wins',label:'Wins',value:number(player.stats?.wins),localKey:'wins',higherBetter:true,trendAliases:['wins']},
+    {id:'saves',label:'Saves',value:number(player.stats?.saves),localKey:'saves',higherBetter:true,trendAliases:['saves']},
+    {id:'shutouts',label:'Shutouts',value:number(player.stats?.shutouts),localKey:'shutouts',higherBetter:true,trendAliases:['shutouts']},
+    ...(above900.value!=null?[{id:'gamesAbove900',label:'Games Above .900',value:above900.value,higherBetter:true,percentile:above900.percentile,leagueAvg:above900.leagueAvg,trendAliases:['gamesAbove900']}]:[]),
+    ...(support.value?[{id:'goalSupport',label:'Goal Support Average',value:support.value,format:'decimal2',higherBetter:true,percentile:support.percentile,leagueAvg:support.leagueAvg,trendAliases:['goalSupportAvg']}]:[]),
+    ...(pointPct.value!=null?[{id:'pointPct',label:'Point Percentage',value:pointPct.value,format:'pct',higherBetter:true,percentile:pointPct.percentile,leagueAvg:pointPct.leagueAvg,trendAliases:['pointPctg']}]:[])
+  ].filter(metric=>metric.value!=null&&Number.isFinite(Number(metric.value)));
+}
+function buildSkaterEdgeMetrics(cached){
+  const summary=edgeSection(cached,'summary')||{};
+  const metric=(id,label,keys,format,higherBetter=true,apiLeaderboard=null,trendAliases=keys)=>{const obj=deepValue(summary,keys);return {id,label,value:edgeNumber(obj),format,higherBetter,apiLeaderboard,percentile:edgePercentile(obj),leagueAvg:edgeLeagueAverage(obj),trendAliases};};
+  return [
+    metric('maxSkatingSpeed','Maximum Skating Speed',['maxSkatingSpeed','speedMax'],'mph',true,'maxSkatingSpeed'),
+    metric('hardestShot','Hardest Shot',['topShotSpeed','maxShotSpeed'],'mph',true,'hardestShot'),
+    metric('totalDistanceSkated','Total Distance Skated',['totalDistanceSkated'],'miles',true,'totalDistanceSkated'),
+    metric('distanceMaxGame','Most Distance in One Game',['distanceMaxGame'],'miles',true,null),
+    metric('offensiveZoneTime','Offensive-Zone Time',['offensiveZoneTime','offensiveZonePctg'],'pct',true,'offensiveZoneTime'),
+    metric('defensiveZoneTime','Defensive-Zone Time',['defensiveZoneTime','defensiveZonePctg'],'pct',false,'defensiveZoneTime')
+  ].filter(metric=>metric.value!=null);
+}
+function edgeMetricsForPlayer(cached,player){return player.playerType==='goalie'?buildGoalieEdgeMetrics(cached,player):buildSkaterEdgeMetrics(cached,player);}
+function localTopFive(metric,player){
+  if(!metric.localKey)return [];
+  return positionalSample(player).map(item=>({id:item.id,name:item.name,team:item.team,headshot:headshotUrl(item),value:metricLocalValue(item,metric.localKey)})).filter(row=>Number.isFinite(row.value)&&row.value!==0).sort((a,b)=>metric.higherBetter===false?a.value-b.value:b.value-a.value).slice(0,5);
+}
+function edgeLeaderboardKey(metric,player){return `${state.season}:${positionGroupForRank(player)}:${metric.id}`;}
+async function loadEdgeLeaderboard(metric,player){
+  if(!metric.apiLeaderboard)return;
+  const key=edgeLeaderboardKey(metric,player);if(state.edgeLeaderboardCache.has(key)||state.edgeLeaderboardLoading.has(key))return;
+  state.edgeLeaderboardLoading.add(key);renderEdgePanel(player);
+  try{const response=await fetch(`/api/edge?leaderboard=${encodeURIComponent(metric.apiLeaderboard)}&season=${state.season}&position=${positionGroupForRank(player)}`,{cache:'no-store'});const payload=await response.json();if(!response.ok)throw new Error(payload.error||`${response.status}`);state.edgeLeaderboardCache.set(key,{rows:payload.rows||[]});}
+  catch(error){state.edgeLeaderboardCache.set(key,{error:error.message});}
+  finally{state.edgeLeaderboardLoading.delete(key);renderEdgePanel(player);}
+}
+function edgeLeaderboardHtml(metric,player){
+  let rows=localTopFive(metric,player);let status='Same-position NHL season leaders';
+  if(metric.apiLeaderboard){const key=edgeLeaderboardKey(metric,player);const cached=state.edgeLeaderboardCache.get(key);if(!cached)return `<section class="edge-leaderboard-panel"><div class="calendar-loading">Loading the official NHL EDGE top five…</div></section>`;if(cached.error)return `<section class="edge-leaderboard-panel"><div class="history-error">${safeText(cached.error)}</div></section>`;rows=(cached.rows||[]).slice(0,5);status='Official NHL EDGE top five';}
+  if(!rows.length)return `<section class="edge-leaderboard-panel"><div class="assistant-empty">A reliable top-five comparison is not available for this category yet. The player rank above still uses the NHL EDGE percentile when supplied.</div></section>`;
+  return `<section class="edge-leaderboard-panel"><div class="edge-leaderboard-heading"><div><small>${safeText(status)}</small><strong>${safeText(metric.label)}</strong></div><span>Select a card to open Player Lab</span></div><div class="edge-top-five">${rows.map((row,index)=>`<button type="button" class="edge-leader-row" data-edge-player="${row.id}"><span class="rank">${index+1}</span><img src="${safeText(row.headshot||`https://assets.nhle.com/mugs/nhl/latest/${row.id}.png`)}" alt="" onerror="this.style.opacity=.12"/><span><strong>${safeText(row.name)}</strong><small>${safeText(row.team||row.position||'NHL')}</small></span><b>${safeText(edgeMetricValue(row.value,metric.id,metric.format))}</b></button>`).join('')}</div></section>`;
+}
 function renderEdgePanel(player) {
   const cached = state.edgeCache.get(`${state.season}:${player.id}`);
-  const status = $('#edgeStatus');
-  const metrics = $('#edgeMetrics');
-  const raw = $('#edgeRaw');
-  if (!cached) {
-    status.className = 'edge-status';
-    status.textContent = player.gamesPlayed ? `NHL EDGE is ready for ${player.name}. Data loads on demand.` : `${player.name} has no NHL game sample for this season, so EDGE may not have tracking data.`;
-    metrics.innerHTML = '';
-    raw.innerHTML = '';
-    $('#edgeDetails').open = false;
-    return;
-  }
-  if (cached.error) {
-    status.className = 'edge-status error';
-    status.textContent = cached.error;
-    metrics.innerHTML = '';
-    raw.innerHTML = '';
-    return;
-  }
-  status.className = 'edge-status live';
-  status.textContent = `${cached.metrics?.length || 0} advanced metrics loaded from official NHL EDGE for ${player.name}.`;
-  metrics.innerHTML = (cached.metrics || []).slice(0,24).map(metric => `<article class="edge-metric"><small>${safeText(metric.section || 'NHL EDGE')}</small><strong>${safeText(edgeMetricValue(metric.value,metric.key))}</strong><span title="${safeText(metric.key)}">${safeText(readableMetricKey(metric.key))}</span></article>`).join('') || '<div class="empty-state">The endpoint returned data, but no numeric metrics could be summarized automatically. Open the raw sections below.</div>';
-  raw.innerHTML = (cached.sections || []).map(section => `<div class="edge-raw-section"><strong>${safeText(section.label || section.key)}</strong><pre>${safeText(JSON.stringify(section.data,null,2))}</pre></div>`).join('');
+  const status = $('#edgeStatus'), metrics = $('#edgeMetrics'), raw = $('#edgeRaw');
+  if (!cached) { status.className='edge-status';status.textContent=player.gamesPlayed?`Loading NHL EDGE categories for ${player.name}…`:`${player.name} has no NHL game sample for this season.`;metrics.innerHTML='';raw.innerHTML='';$('#edgeDetails').open=false;return; }
+  if (cached.error) {status.className='edge-status error';status.textContent=cached.error;metrics.innerHTML='';raw.innerHTML='';return;}
+  const cards=edgeMetricsForPlayer(cached,player);
+  status.className='edge-status live';status.textContent=`${cards.length} performance categories loaded for ${player.name}. Rank is exact where the full season table is available and marked ~ when derived from NHL EDGE percentile.`;
+  metrics.innerHTML=cards.map(metric=>{const rank=metricRank(metric,player),trend=metricTrend(metric,cached,player),active=state.edgeExpandedMetric===metric.id;return `<button type="button" class="edge-metric ${active?'active':''}" data-edge-metric="${metric.id}">${rankMarkup(rank)}<span class="edge-metric-label">${safeText(metric.label)}</span><span class="edge-value-line"><strong>${safeText(edgeMetricValue(metric.value,metric.id,metric.format))}</strong>${edgeTrendMarkup(trend)}</span><span class="edge-comparison">${metric.leagueAvg!=null?`League avg ${safeText(edgeMetricValue(metric.leagueAvg,metric.id,metric.format))}`:'Select for top five'} <b>${active?'▲':'▼'}</b></span></button>${active?edgeLeaderboardHtml(metric,player):''}`;}).join('')||'<div class="empty-state">NHL EDGE returned data, but no supported performance categories were found.</div>';
+  const selected=cards.find(metric=>metric.id===state.edgeExpandedMetric);if(selected?.apiLeaderboard&&!state.edgeLeaderboardCache.has(edgeLeaderboardKey(selected,player))&&!state.edgeLeaderboardLoading.has(edgeLeaderboardKey(selected,player)))loadEdgeLeaderboard(selected,player);
+  raw.innerHTML=(cached.sections||[]).map(section=>`<div class="edge-raw-section"><strong>${safeText(section.label||section.key)}</strong><pre>${safeText(JSON.stringify(section.data,null,2))}</pre></div>`).join('');
 }
 
 function flattenEdgeNumbers(value, prefix = '', output = [], depth = 0) {
@@ -934,9 +1153,14 @@ async function loadEdgeDataForPlayer(player) {
       payload=await response.json();
     } catch(serverError) {
       const definitions=player.position==='G'
-        ? [{key:'goalie',label:'Goalie tracking',url:`${NHL_WEB}/edge/goalie-detail/${player.id}/${state.season}/2`}]
+        ? [
+          {key:'goalie',label:'Goalie performance',url:`${NHL_WEB}/edge/goalie-detail/${player.id}/${state.season}/2`},
+          {key:'savePct',label:'Save percentage',url:`${NHL_WEB}/edge/goalie-save-percentage-detail/${player.id}/${state.season}/2`},
+          {key:'fiveOnFive',label:'Five-on-five save percentage',url:`${NHL_WEB}/edge/goalie-5v5-detail/${player.id}/${state.season}/2`},
+          {key:'shotLocation',label:'Shot location',url:`${NHL_WEB}/edge/goalie-shot-location-detail/${player.id}/${state.season}/2`}
+        ]
         : [
-          {key:'overview',label:'EDGE overview',url:`${NHL_WEB}/cat/edge/skater-detail/${player.id}/${state.season}/2`},
+          {key:'summary',label:'EDGE overview',url:`${NHL_WEB}/cat/edge/skater-detail/${player.id}/${state.season}/2`},
           {key:'skatingSpeed',label:'Skating speed',url:`${NHL_WEB}/edge/skater-skating-speed-detail/${player.id}/${state.season}/2`},
           {key:'skatingDistance',label:'Skating distance',url:`${NHL_WEB}/edge/skater-skating-distance-detail/${player.id}/${state.season}/2`},
           {key:'shotSpeed',label:'Shot speed',url:`${NHL_WEB}/edge/skater-shot-speed-detail/${player.id}/${state.season}/2`},
@@ -1192,7 +1416,7 @@ function renderSlotRecommendations(plan){
     container.innerHTML='<div class="assistant-empty">No signed player with season stats fits this exact position and budget in the packaged salary reference.</div>';
     return;
   }
-  container.innerHTML=`<div class="recommendation-context">Top five by <strong>${recommendationSortLabel(state.salary.recommendationSort)}</strong> under <strong>${money(info.budget)}</strong></div>`+candidates.map((player,index)=>`<article class="slot-recommendation-row"><span class="rank">${index+1}</span><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.12"/><div><strong>${safeText(player.name)}</strong><small>${safeText(player.team)} · ${salaryBadge(player,true)} · ${fmt(player.fpg,2)} FP/G</small><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted · ${fmt(playerProjectedValueRate(player),2)} predicted FP/G per $1M`:`${fmt(playerValueRate(player),2)} FP/G per $1M`}${player.recentGames?` · ${fmt(player.recentFpg,2)} recent`:''}</span></div><button class="primary-button mini" data-add-roster="${player.id}" type="button">ADD</button></article>`).join('');
+  container.innerHTML=`<div class="recommendation-context">Top five by <strong>${recommendationSortLabel(state.salary.recommendationSort)}</strong> under <strong>${money(info.budget)}</strong></div>`+candidates.map((player,index)=>`<article class="slot-recommendation-row"><span class="rank">${index+1}</span><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.12"/><div><strong>${safeText(player.name)}</strong><small>${safeText(player.team)} · ${salaryBadge(player,true)} · ${fmt(player.fpg,2)} FP/G</small><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} predicted · ${fmt(playerProjectedValueRate(player),2)} predicted FP/G per $1M`:`${fmt(playerValueRate(player),2)} FP/G per $1M`}${player.recentGames?` · ${fmt(player.recentFpg,2)} recent`:''}</span></div><div class="recommendation-actions"><button class="secondary-button mini" data-view-bio="${player.id}" type="button">BIO</button><button class="primary-button mini" data-add-roster="${player.id}" type="button">ADD</button></div></article>`).join('');
 }
 
 function openSlotBudgetFor(plan,group,index){ return number(plan.slots[group]?.[index]||NHL_LEAGUE_MINIMUM); }
@@ -1225,7 +1449,7 @@ function renderDraftPool(plan){
   $('#draftList').innerHTML=rows.map(player=>{
     const canAdd=draftPlayerCanBeAdded(player);
     const reason=!number(player.capHit)?(player.salaryStatus==='unsigned'?'UNSIGNED':'SALARY NEEDED'):canAdd?'ADD':'NO CAP/SLOT';
-    return `<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small><span class="draft-salary ${number(player.capHit)?'signed':'pending'}">${salaryBadge(player,true)}${number(player.capHit)?` · ${fmt(playerValueRate(player),2)} FP/G/$1M`:''}</span></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} PRED`:`${fmt(player.fantasyPoints,1)} FPTS`}</span></div><button data-add-roster="${player.id}" ${canAdd?'':'disabled'}>${reason}</button></div>`;
+    return `<div class="draft-row"><img src="${headshotUrl(player)}" alt="" onerror="this.style.opacity=.15"/><div><strong>${safeText(player.name)}</strong><small>${player.team} · ${player.position} · ${player.gamesPlayed} GP</small><span class="draft-salary ${number(player.capHit)?'signed':'pending'}">${salaryBadge(player,true)}${number(player.capHit)?` · ${fmt(playerValueRate(player),2)} FP/G/$1M`:''}</span></div><div class="draft-score"><b>${fmt(player.fpg,2)}</b><span>${predictionForPlayer(player)?`${fmt(playerRankingFpg(player),2)} PRED`:`${fmt(player.fantasyPoints,1)} FPTS`}</span></div><div class="draft-row-actions"><button class="secondary-button mini" data-view-bio="${player.id}" type="button">BIO</button><button data-add-roster="${player.id}" ${canAdd?'':'disabled'}>${reason}</button></div></div>`;
   }).join('')||'<div class="empty-state">No players match these experiment filters.</div>';
 }
 
@@ -2259,6 +2483,22 @@ function inchesLabel(value) {
   return `${Math.floor(inches/12)}′${inches%12}″`;
 }
 
+
+async function openPlayerBio(id) {
+  const playerId=number(id);if(!playerId)return;
+  const rosterPlayer=state.players.find(player=>number(player.id)===playerId);
+  showDialog('Loading player bio…','<div class="calendar-loading">Retrieving the last seven NHL seasons and fantasy totals.</div>','PLAYER BIO CARD');
+  try{
+    const detail=await playerHistoryDetail(rosterPlayer||{id:playerId});
+    const location=[detail.birthCity,detail.birthStateProvince,detail.birthCountry].filter(Boolean).join(', ');
+    const meta=[detail.position,detail.shootsCatches?`${detail.shootsCatches} shot/catch`:'',inchesLabel(detail.heightInInches),detail.weightInPounds?`${detail.weightInPounds} lb`:''].filter(Boolean).join(' · ');
+    const current=rosterPlayer?`<div class="bio-current-strip"><span><small>Current FP/G</small><strong>${fmt(rosterPlayer.fpg,2)}</strong></span><span><small>Salary</small><strong>${salaryBadge(rosterPlayer,true)}</strong></span><span><small>Your prediction</small><strong>${predictionForPlayer(rosterPlayer)?fmt(predictionForPlayer(rosterPlayer),2):'—'}</strong></span></div>`:'';
+    $('#dialogTitle').textContent=detail.name;
+    $('#dialogEyebrow').textContent='SEVEN-SEASON PLAYER BIO';
+    $('#dialogBody').innerHTML=`<div class="history-dialog-profile player-bio-profile"><img src="${safeText(detail.headshot)}" alt="" onerror="this.style.opacity=.08"/><div><strong>${safeText(detail.name)}</strong><span>${safeText(meta||'NHL player')}</span><span>${safeText(location||detail.birthDate||'')}</span></div></div>${current}<p class="history-fpts-note">Fantasy totals use your current scoring rules. Missing historical event-only bonuses are left out rather than guessed.</p>${historySeasonTable(detail,7,true)}${rosterPlayer?`<button type="button" class="primary-button full bio-open-lab" data-open-player="${rosterPlayer.id}">Open full Player Lab</button>`:''}`;
+  }catch(error){$('#dialogTitle').textContent='Player bio unavailable';$('#dialogBody').innerHTML=`<div class="history-error">${safeText(error.message)}</div>`;}
+}
+
 async function openHistoricalPlayer(id) {
   const playerId = number(id);
   if (!playerId) return;
@@ -2298,7 +2538,7 @@ function navigate(route) {
   if(route==='lab')renderLab(); if(route==='draft')renderDraft(); if(route==='calendar'){renderCalendar();if(state.calendar.status==='idle')loadCalendarData();} if(route==='history'){renderHistory();if(state.history.tab==='fantasy')loadHistoricalFantasySeason();else if(state.history.status==='idle')loadHistoricalData();}
 }
 
-function openPlayer(id) { state.selectedPlayerId=number(id); navigate('lab'); renderLab(); }
+function openPlayer(id) { state.selectedPlayerId=number(id); state.edgeExpandedMetric=null; navigate('lab'); renderLab(); }
 function showDialog(title,body,eyebrow='FDA'){ $('#dialogTitle').textContent=title; $('#dialogEyebrow').textContent=eyebrow; $('#dialogBody').innerHTML=body; $('#messageDialog').showModal(); }
 
 async function importSalaryMasterFile(file){
@@ -2328,7 +2568,10 @@ async function importSalaryMasterFile(file){
 function bindEvents() {
   document.addEventListener('click',event=>{
     const route=event.target.closest('[data-route]')?.dataset.route; if(route)navigate(route);
-    const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId)openPlayer(playerId);
+    const playerId=event.target.closest('[data-open-player]')?.dataset.openPlayer; if(playerId){if($('#messageDialog')?.open)$('#messageDialog').close();openPlayer(playerId);}
+    const bioPlayerId=event.target.closest('[data-view-bio]')?.dataset.viewBio; if(bioPlayerId)openPlayerBio(bioPlayerId);
+    const edgePlayerId=event.target.closest('[data-edge-player]')?.dataset.edgePlayer; if(edgePlayerId)openPlayerBio(edgePlayerId);
+    const edgeMetric=event.target.closest('[data-edge-metric]')?.dataset.edgeMetric;if(edgeMetric){state.edgeExpandedMetric=state.edgeExpandedMetric===edgeMetric?null:edgeMetric;const player=selectedPlayer();if(player)renderEdgePanel(player);}
     const historyPlayerId=event.target.closest('[data-history-player]')?.dataset.historyPlayer; if(historyPlayerId)openHistoricalPlayer(historyPlayerId);
     const historyTab=event.target.closest('[data-history-tab]')?.dataset.historyTab; if(historyTab){state.history.tab=historyTab;renderHistory();if(historyTab==='fantasy')loadHistoricalFantasySeason();else if(state.history.status==='idle')loadHistoricalData();}
     const addId=event.target.closest('[data-add-roster]')?.dataset.addRoster; if(addId){

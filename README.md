@@ -1,4 +1,17 @@
-# Fantrax Draft Assister v12
+# Fantrax Draft Assister v13
+
+## Player Lab and bio-card rebuild
+
+The Player Lab now replaces the seven-day market chart with the player's last seven NHL regular seasons. Each row includes the useful position-specific totals plus fantasy points and FP/G recalculated from the scoring settings currently saved in FDA. Missing historical event-only bonuses are labelled as unavailable rather than guessed.
+
+NHL EDGE is presented as selectable performance-category cards. Every supported card shows:
+
+- the player's rank among the same position, with `~` marking percentile-derived estimates;
+- a green upward arrow, red downward arrow or blue maintaining line plus the number of consecutive weeks in that direction;
+- the current value and NHL league-average value when returned by EDGE;
+- a selectable top-five same-position leaderboard for that category.
+
+Selecting a top-five player opens the reusable seven-season player bio card. The same bio card is available from BIO buttons in the Draft Room player market and five-player slot recommendations. It includes current FP/G, salary and personal prediction when the player is loaded in the active FDA database, plus a direct button to the full Player Lab.
 
 ## Focused Calendar Fit
 
