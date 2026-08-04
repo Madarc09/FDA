@@ -1,3 +1,15 @@
+# Fantrax Draft Assister v12
+
+## Focused Calendar Fit
+
+Calendar Fit now contains only three working areas:
+
+1. Select any NHL team and view its five best schedule partners, including different-night games and same-night dates.
+2. Select keeper goalie Yaroslav Askarov or Mackenzie Blackwood and generate five available signed goalie partners. The goalie list ranks teams that play most often while the selected keeper's team is off, then breaks ties using fewer same-night conflicts and player FP/G.
+3. Select any team or goalie result to inspect that exact pairing in the preserved Monday-Sunday calendar.
+
+The rest of the roster lab, full static salary master, prediction editor, historical pages, and draft tools remain unchanged.
+
 # FDA - Fantrax Draft Assist
 
 FDA is Nick's private, mobile-first NHL fantasy draft assistant. It combines official NHL data with the league's saved Fantrax scoring rules, a fixed keeper core and nightly lineup limits of 6 forwards, 4 defencemen and 2 goalies.

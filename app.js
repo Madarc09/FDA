@@ -90,6 +90,7 @@ const state = {
   calendar: {
     season: '20262027', data: null, status: 'idle', error: '',
     window: 'FULL', threshold: 8, focusTeam: 'ALL', sort: 'score', lookupTeam: storage.getItem('fda-calendar-lookup-team') || 'ANA',
+    selectedGoalieName: storage.getItem('fda-calendar-goalie') || 'Yaroslav Askarov', goalieRecommendations: [],
     pairs: [], trios: [], selectedPair: null, visiblePairs: 30, weekIndex: 0, teamPlans: [], generatorStatus:'idle', generatorError:''
   },
   history: { status: 'idle', data: null, error: '', tab: 'career', detailCache: new Map(), fantasySeason:'20252026', fantasyPosition:'ALL', fantasyStatus:'idle', fantasyError:'', fantasyCache:new Map() },
@@ -1593,14 +1594,104 @@ function renderTeamPairLookup() {
     return;
   }
   const best = rows[0];
-  summary.innerHTML = `<strong>${selected}</strong> plays ${best.selectedGames} games in this window. Its best schedule partner is <strong>${best.partner}</strong>: ${best.differentNights} different-night games across the two clubs, ${best.sameNight} same-night dates, and ${best.partnerOnly} games where ${best.partner} plays while ${selected} is off.`;
-  container.innerHTML = rows.map((row,index) => `<button class="team-pair-lookup-row" data-calendar-pair="${pairKey(row.pair)}" type="button">
+  summary.innerHTML = `<strong>${selected}</strong> best matches with <strong>${best.partner}</strong>. Select any result to open that pair in the Monday–Sunday view.`;
+  container.innerHTML = rows.map((row,index) => `<button class="team-pair-lookup-row calendar-simple-row" data-calendar-pair="${pairKey(row.pair)}" type="button">
     <span class="team-pair-lookup-rank">${index+1}</span>
-    <span class="team-pair-lookup-team">${pairLogos(row.pair)}<span><strong>${selected} + ${row.partner}</strong><small>${fmt(row.complementRate,1)}% of combined team-games avoid a same-night conflict</small></span></span>
-    <span><b>${row.differentNights}</b><small>different-night games</small></span>
-    <span><b>${row.sameNight}</b><small>same-night dates</small></span>
-    <span><b>${row.partnerOnly}</b><small>${row.partner} while ${selected} off</small></span>
-    <span><b>${row.selectedOnly}</b><small>${selected} while ${row.partner} off</small></span>
+    <span class="team-pair-lookup-team">${pairLogos(row.pair)}<span><strong>${selected} + ${row.partner}</strong><small>${row.partnerOnly} ${row.partner} games while ${selected} is off</small></span></span>
+    <span class="calendar-result-metric"><b>${row.differentNights}</b><small>different-night games</small></span>
+    <span class="calendar-result-metric conflict"><b>${row.sameNight}</b><small>same-night dates</small></span>
+  </button>`).join('');
+}
+
+function keeperGoaliesForCalendar() {
+  const keepers = state.players.filter(player => player.keeper && !player.minorKeeper && positionGroup(player) === 'G');
+  return keepers.sort((a,b) => {
+    const order = {yaroslavaskarov:0,mackenzieblackwood:1};
+    return (order[normalizedName(a.name)] ?? 9) - (order[normalizedName(b.name)] ?? 9);
+  });
+}
+
+function selectedCalendarGoalie() {
+  const goalies = keeperGoaliesForCalendar();
+  return goalies.find(goalie => normalizedName(goalie.name) === normalizedName(state.calendar.selectedGoalieName)) || goalies[0] || null;
+}
+
+function renderKeeperGoalieSlots() {
+  const container = $('#keeperGoalieSlots');
+  if (!container) return;
+  const goalies = keeperGoaliesForCalendar();
+  const selected = selectedCalendarGoalie();
+  if (!goalies.length) {
+    container.innerHTML = '<div class="calendar-loading">Keeper goalie data is not available.</div>';
+    return;
+  }
+  if (selected) state.calendar.selectedGoalieName = selected.name;
+  container.innerHTML = goalies.map(goalie => `<button class="keeper-goalie-slot ${selected?.id === goalie.id ? 'selected' : ''}" data-select-calendar-goalie="${goalie.id}" type="button">
+    <img src="${headshotUrl(goalie)}" alt="" onerror="this.src='${teamLogoUrl(goalie.team)}'" />
+    <span><strong>${safeText(goalie.name)}</strong><small>${goalie.team} · ${fmt(goalie.fpg,2)} FP/G · ${salaryBadge(goalie,true)}</small></span>
+    <b>${selected?.id === goalie.id ? 'SELECTED' : 'SELECT'}</b>
+  </button>`).join('');
+}
+
+function goalieRecommendationRows(goalie) {
+  if (!goalie || !calendarDatasetValid(state.calendar.data)) return [];
+  const range = calendarRange();
+  const selectedDates = new Set(teamDatesForWindow(goalie.team, range));
+  const candidateByTeam = new Map();
+  for (const candidate of state.players) {
+    if (positionGroup(candidate) !== 'G' || candidate.team === goalie.team || state.roster.includes(candidate.id) || !number(candidate.capHit)) continue;
+    const current = candidateByTeam.get(candidate.team);
+    if (!current || playerRankingFpg(candidate) > playerRankingFpg(current) || (playerRankingFpg(candidate) === playerRankingFpg(current) && number(candidate.capHit) < number(current.capHit))) candidateByTeam.set(candidate.team,candidate);
+  }
+  return [...candidateByTeam.values()].map(candidate => {
+    const partnerDates = new Set(teamDatesForWindow(candidate.team, range));
+    const selectedOnly = [...selectedDates].filter(date => !partnerDates.has(date)).length;
+    const partnerOnly = [...partnerDates].filter(date => !selectedDates.has(date)).length;
+    const sameNight = [...selectedDates].filter(date => partnerDates.has(date)).length;
+    const differentNights = selectedOnly + partnerOnly;
+    const pair = state.calendar.pairs.find(item => (item.teamA === goalie.team && item.teamB === candidate.team) || (item.teamB === goalie.team && item.teamA === candidate.team));
+    return {candidate,pair,selectedOnly,partnerOnly,sameNight,differentNights};
+  }).filter(row => row.pair)
+    .sort((a,b) => b.partnerOnly-a.partnerOnly || b.differentNights-a.differentNights || a.sameNight-b.sameNight || playerRankingFpg(b.candidate)-playerRankingFpg(a.candidate))
+    .slice(0,5);
+}
+
+function generateGoalieRecommendations() {
+  const goalie = selectedCalendarGoalie();
+  if (!goalie) return;
+  state.calendar.goalieRecommendations = goalieRecommendationRows(goalie);
+  if (state.calendar.goalieRecommendations[0]?.pair) {
+    state.calendar.selectedPair = [state.calendar.goalieRecommendations[0].pair.teamA,state.calendar.goalieRecommendations[0].pair.teamB];
+    state.calendar.weekIndex = 0;
+  }
+  renderGoalieRecommendations();
+  renderWeeklyCalendar();
+}
+
+function renderGoalieRecommendations() {
+  const summary = $('#goalieOptionSummary');
+  const container = $('#goalieOptionResults');
+  if (!summary || !container) return;
+  const goalie = selectedCalendarGoalie();
+  if (!goalie) {
+    summary.textContent = 'Keeper goalie data is not available.';
+    container.innerHTML = '';
+    return;
+  }
+  const rows = state.calendar.goalieRecommendations;
+  if (!rows.length) {
+    summary.innerHTML = `Selected: <strong>${safeText(goalie.name)}</strong> (${goalie.team}). Generate to compare every available signed goalie.`;
+    container.innerHTML = '';
+    return;
+  }
+  summary.innerHTML = `Top five available goalies for <strong>${safeText(goalie.name)}</strong>, ranked first by games their team plays while ${goalie.team} is off, then by fewer same-night conflicts.`;
+  container.innerHTML = rows.map((row,index) => `<button class="goalie-option-row" data-calendar-pair="${pairKey(row.pair)}" type="button">
+    <span class="goalie-option-rank">${index+1}</span>
+    <img src="${headshotUrl(row.candidate)}" alt="" onerror="this.src='${teamLogoUrl(row.candidate.team)}'" />
+    <span class="goalie-option-player"><strong>${safeText(row.candidate.name)}</strong><small>${row.candidate.team} · ${fmt(playerRankingFpg(row.candidate),2)} FP/G · ${salaryBadge(row.candidate,true)}</small></span>
+    <span class="calendar-result-metric"><b>${row.partnerOnly}</b><small>${row.candidate.team} games while ${goalie.team} off</small></span>
+    <span class="calendar-result-metric"><b>${row.differentNights}</b><small>different-night games</small></span>
+    <span class="calendar-result-metric conflict"><b>${row.sameNight}</b><small>same-night dates</small></span>
   </button>`).join('');
 }
 
@@ -1867,28 +1958,32 @@ function populateCalendarTeamFilter() {
 }
 
 function renderCalendar() {
-  const source=$('#calendarSource'); if(!source)return;
-  $('#calendarSeason').value=state.calendar.season; $('#calendarWindow').value=state.calendar.window; $('#offNightThreshold').value=String(state.calendar.threshold); $('#pairSort').value=state.calendar.sort;
-  $('#calendarSparseLabel').textContent=`${state.calendar.threshold} games or fewer`;
-  if(state.calendar.status==='loading'){
-    source.textContent='Loading all 32 official NHL team schedules and deduplicating games...';
-    ['#bestPairSpotlight','#worstPairSpotlight','#teamPairLookupResults','#starPairGrid','#goaliePairGrid','#pairRankingList','#trioList','#teamScheduleProfiles','#keeperPartnerGrid','#teamPlanResults','#weeklyCalendar'].forEach(selector=>{const el=$(selector);if(el)el.innerHTML='<div class="calendar-loading">Calculating schedule fit...</div>';});
+  const source = $('#calendarSource');
+  if (!source) return;
+  if (state.calendar.status === 'loading') {
+    source.textContent = 'Loading the official NHL schedule…';
+    const teamResults = $('#teamPairLookupResults');
+    if (teamResults) teamResults.innerHTML = '<div class="calendar-loading">Calculating the five best team partners…</div>';
+    const week = $('#weeklyCalendar');
+    if (week) week.innerHTML = '<div class="calendar-loading">Preparing the Monday–Sunday view…</div>';
+    renderKeeperGoalieSlots();
     return;
   }
-  if(!calendarDatasetValid(state.calendar.data)){
-    const message=state.calendar.status==='error'?`Schedule unavailable: ${state.calendar.error}`:'The schedule page is ready. Deploy FDA or use the direct-load button to import the official NHL schedule.';
-    source.textContent=message;
-    $('#calendarGameCount').textContent='-'; $('#calendarPairCount').textContent='-'; $('#calendarSparseDates').textContent='-'; $('#calendarBestCoverage').textContent='-';
+  if (!calendarDatasetValid(state.calendar.data)) {
+    source.textContent = state.calendar.status === 'error' ? `Schedule unavailable: ${state.calendar.error}` : 'Official schedule not loaded yet.';
+    renderKeeperGoalieSlots();
+    renderGoalieRecommendations();
     return;
   }
-  const data=state.calendar.data, range=calendarRange(), counts=leagueCountsForRange(range), sparseDates=Object.values(counts).filter(count=>count<=state.calendar.threshold).length;
-  source.textContent=`${data.source} · generated ${new Date(data.generatedAt).toLocaleString('en-US')}`;
-  $('#calendarGameCount').textContent=data.metadata.gameCount.toLocaleString('en-US'); $('#calendarDateRange').textContent=`${compactDate(data.metadata.startDate)} - ${compactDate(data.metadata.endDate)}`;
-  $('#calendarPairCount').textContent=state.calendar.pairs.length.toLocaleString('en-US'); $('#calendarSparseDates').textContent=sparseDates; $('#calendarBestCoverage').textContent=state.calendar.pairs[0]?.coverage||'-';
-  populateCalendarTeamFilter(); populateTeamPairLookup();
-  const best=sortedCalendarPairs()[0]||state.calendar.pairs[0], worst=[...state.calendar.pairs].sort((a,b)=>a.score-b.score)[0];
-  renderPairSpotlight($('#bestPairSpotlight'),best,'BEST TWO-TEAM FIT'); renderPairSpotlight($('#worstPairSpotlight'),worst,'WORST TWO-TEAM FIT');
-  renderTeamPairLookup(); renderStarPairs(); renderGoaliePairs(); renderPairRankings(); renderTrios(); renderTeamProfiles(); renderRosterFit(); renderKeeperPartners(); renderTeamPlans(); renderWeeklyCalendar();
+  source.textContent = `${state.calendar.data.metadata.gameCount.toLocaleString('en-US')} official games · ${compactDate(state.calendar.data.metadata.startDate)}–${compactDate(state.calendar.data.metadata.endDate)}`;
+  populateTeamPairLookup();
+  const rows = teamPairLookupRows();
+  const selectedHasLookup = state.calendar.selectedPair?.includes(state.calendar.lookupTeam);
+  if (!selectedHasLookup && rows[0]?.pair) state.calendar.selectedPair = [rows[0].pair.teamA,rows[0].pair.teamB];
+  renderTeamPairLookup();
+  renderKeeperGoalieSlots();
+  renderGoalieRecommendations();
+  renderWeeklyCalendar();
 }
 
 
@@ -2255,6 +2350,7 @@ function bindEvents() {
     const budgetPlan=event.target.closest('[data-budget-plan]')?.dataset.budgetPlan; if(budgetPlan){state.salary.plan=budgetPlan;saveSalarySettings();renderDraft();}
     const slotTarget=event.target.closest('[data-select-budget-slot]')?.dataset.selectBudgetSlot; if(slotTarget){const [group,index]=slotTarget.split(':');state.salary.selectedSlot={group,index:number(index)};renderDraft();}
     if(event.target.closest('#resetSelectedSlotBudget')){const plan=buildBudgetPlan();const info=selectedSlotBudgetInfo(plan);if(info.key)delete state.salary.slotOverrides[info.key];saveSalarySettings();renderDraft();}
+    const calendarGoalieId=event.target.closest('[data-select-calendar-goalie]')?.dataset.selectCalendarGoalie; if(calendarGoalieId){const goalie=state.players.find(item=>item.id===number(calendarGoalieId));if(goalie){state.calendar.selectedGoalieName=goalie.name;state.calendar.goalieRecommendations=[];storage.setItem('fda-calendar-goalie',goalie.name);renderKeeperGoalieSlots();renderGoalieRecommendations();}}
     const calendarPair=event.target.closest('[data-calendar-pair]')?.dataset.calendarPair; if(calendarPair){state.calendar.selectedPair=calendarPair.split('-');state.calendar.weekIndex=0;renderCalendar();document.querySelector('.calendar-board-section')?.scrollIntoView({behavior:'smooth',block:'start'});}
   });
   $('#refreshData').addEventListener('click',()=>refreshAllData({forceLive:true}));
@@ -2267,18 +2363,19 @@ function bindEvents() {
   $('#watchPlayer').addEventListener('click',()=>{const player=selectedPlayer();if(!player)return;state.watchlist.has(player.id)?state.watchlist.delete(player.id):state.watchlist.add(player.id);storage.setItem('fda-watchlist',JSON.stringify([...state.watchlist]));renderLab();});
   $('#refreshSchedule').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadSchedule(player);});
   $('#loadEdgeData').addEventListener('click',()=>{const player=selectedPlayer();if(player)loadEdgeDataForPlayer(player);});
-  $('#refreshCalendar').addEventListener('click',()=>loadCalendarData({force:true}));
+  $('#refreshCalendar')?.addEventListener('click',()=>loadCalendarData({force:true}));
   $('#refreshHistory').addEventListener('click',()=>state.history.tab==='fantasy'?loadHistoricalFantasySeason({force:true}):loadHistoricalData({force:true}));
-  $('#directCalendarLoad').addEventListener('click',()=>loadCalendarData({force:true,direct:true}));
-  $('#calendarSeason').addEventListener('change',event=>{state.calendar.season=event.target.value;state.calendar.data=null;state.calendar.status='idle';state.calendar.visiblePairs=30;loadCalendarData({force:true});});
-  $('#calendarWindow').addEventListener('change',event=>{state.calendar.window=event.target.value;state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
-  $('#offNightThreshold').addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);state.calendar.visiblePairs=30;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
-  $('#calendarTeam').addEventListener('change',event=>{state.calendar.focusTeam=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
-  $('#teamPairLookup').addEventListener('change',event=>{state.calendar.lookupTeam=event.target.value;storage.setItem('fda-calendar-lookup-team',state.calendar.lookupTeam);renderCalendar();});
-  $('#pairSort').addEventListener('change',event=>{state.calendar.sort=event.target.value;state.calendar.visiblePairs=30;renderCalendar();});
-  $('#loadMorePairs').addEventListener('click',()=>{state.calendar.visiblePairs+=30;renderPairRankings();});
-  $('#rosterFitPosition').addEventListener('change',()=>renderRosterFit());
-  $('#generateTeamPlans').addEventListener('click',()=>{if(!calendarDatasetValid(state.calendar.data))return showDialog('Schedule required','<p>Load the official NHL schedule before generating roster plans.</p>');generateTeamPlans();});
+  $('#directCalendarLoad')?.addEventListener('click',()=>loadCalendarData({force:true,direct:true}));
+  $('#calendarSeason')?.addEventListener('change',event=>{state.calendar.season=event.target.value;state.calendar.data=null;state.calendar.status='idle';loadCalendarData({force:true});});
+  $('#calendarWindow')?.addEventListener('change',event=>{state.calendar.window=event.target.value;invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
+  $('#offNightThreshold')?.addEventListener('change',event=>{state.calendar.threshold=number(event.target.value);invalidateTeamPlans();recalculateCalendarAnalysis();renderCalendar();});
+  $('#calendarTeam')?.addEventListener('change',event=>{state.calendar.focusTeam=event.target.value;renderCalendar();});
+  $('#teamPairLookup').addEventListener('change',event=>{state.calendar.lookupTeam=event.target.value;storage.setItem('fda-calendar-lookup-team',state.calendar.lookupTeam);const row=teamPairLookupRows()[0];if(row?.pair){state.calendar.selectedPair=[row.pair.teamA,row.pair.teamB];state.calendar.weekIndex=0;}renderCalendar();});
+  $('#pairSort')?.addEventListener('change',event=>{state.calendar.sort=event.target.value;renderCalendar();});
+  $('#loadMorePairs')?.addEventListener('click',()=>{state.calendar.visiblePairs+=30;renderPairRankings();});
+  $('#rosterFitPosition')?.addEventListener('change',()=>renderRosterFit());
+  $('#generateTeamPlans')?.addEventListener('click',()=>{if(!calendarDatasetValid(state.calendar.data))return showDialog('Schedule required','<p>Load the official NHL schedule before generating roster plans.</p>');generateTeamPlans();});
+  $('#generateGoalieOptions').addEventListener('click',()=>{if(!calendarDatasetValid(state.calendar.data))return showDialog('Schedule required','<p>Load the official NHL schedule before generating goalie options.</p>');generateGoalieRecommendations();});
   $('#calendarPrevWeek').addEventListener('click',()=>{state.calendar.weekIndex=Math.max(0,state.calendar.weekIndex-1);renderWeeklyCalendar();});
   $('#calendarNextWeek').addEventListener('click',()=>{state.calendar.weekIndex+=1;renderWeeklyCalendar();});
   $('#resetRoster').addEventListener('click',()=>{restoreKeeperRoster();invalidateTeamPlans();renderDraft();renderCalendar();});

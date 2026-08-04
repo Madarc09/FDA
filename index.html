@@ -315,162 +315,34 @@
       </section>
 
       <section class="page" id="page-calendar">
-        <div class="page-heading calendar-heading">
-          <div>
-            <p class="eyebrow">SCHEDULE COMPLEMENT ENGINE</p>
-            <h1>Turn your keeper core into the most playable 23-man roster.</h1>
-            <p>FDA simulates the players you already own, starts the best 6F / 4D / 2G every night, and identifies which NHL teams should fill the remaining roster spots.</p>
-          </div>
-          <button class="secondary-button" id="refreshCalendar">Refresh NHL schedule</button>
-        </div>
-
-        <section class="panel calendar-controls">
-          <label>Schedule season
-            <select id="calendarSeason">
-              <option value="20262027">2026-27</option>
-              <option value="20252026">2025-26</option>
-              <option value="20242025">2024-25</option>
-            </select>
-          </label>
-          <label>Analysis window
-            <select id="calendarWindow">
-              <option value="FULL">Full regular season</option>
-              <option value="OPENING">Opening 8 weeks</option>
-              <option value="PLAYOFFS">Final 4 fantasy weeks</option>
-            </select>
-          </label>
-          <label>Sparse-night limit
-            <select id="offNightThreshold">
-              <option value="6">6 games or fewer</option>
-              <option value="7">7 games or fewer</option>
-              <option value="8" selected>8 games or fewer</option>
-              <option value="9">9 games or fewer</option>
-              <option value="10">10 games or fewer</option>
-            </select>
-          </label>
-          <label>Focus team
-            <select id="calendarTeam"><option value="ALL">League-wide</option></select>
-          </label>
-          <div class="calendar-source-row">
-            <span id="calendarSource">Waiting for the official NHL schedule...</span>
-            <button class="text-button" id="directCalendarLoad">Load directly from NHL</button>
-          </div>
-        </section>
-
-        <div class="calendar-metrics">
-          <article class="panel calendar-metric"><span>Official games</span><strong id="calendarGameCount">-</strong><small id="calendarDateRange">Schedule not loaded</small></article>
-          <article class="panel calendar-metric"><span>Team pairs scored</span><strong id="calendarPairCount">-</strong><small>All possible combinations</small></article>
-          <article class="panel calendar-metric"><span>Sparse dates</span><strong id="calendarSparseDates">-</strong><small id="calendarSparseLabel">8 games or fewer</small></article>
-          <article class="panel calendar-metric"><span>Best coverage</span><strong id="calendarBestCoverage">-</strong><small>Distinct playable dates</small></article>
-        </div>
-
-        <div class="calendar-spotlight-grid">
-          <section class="panel pairing-spotlight best" id="bestPairSpotlight">
-            <p class="eyebrow">BEST TWO-TEAM FIT</p>
-            <div class="calendar-loading">Load the NHL schedule to calculate the best pair.</div>
-          </section>
-          <section class="panel pairing-spotlight worst" id="worstPairSpotlight">
-            <p class="eyebrow">WORST TWO-TEAM FIT</p>
-            <div class="calendar-loading">Same-night conflicts will appear here.</div>
-          </section>
-        </div>
-
-        <section class="panel calendar-section team-pair-lookup-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">CHECK ANY PLAYER'S TEAM</p><h2>Top five schedule partners for one NHL team</h2></div>
-            <label class="compact-control">Player's NHL team
+        <div class="calendar-simple-shell">
+          <section class="panel calendar-simple-picker">
+            <label class="calendar-primary-select">Select an NHL team
               <select id="teamPairLookup"><option value="ANA">ANA</option></select>
             </label>
-          </div>
-          <p class="calendar-explainer">Choose the NHL team of the player you are checking. The five best partners are ordered by the most games played on different nights, then the fewest same-night conflicts.</p>
-          <div class="roster-fit-summary" id="teamPairLookupSummary">Load the official schedule to compare teams.</div>
-          <div class="team-pair-lookup-head"><span>Pair</span><span>Different nights</span><span>Same night</span><span>Partner while selected off</span><span>Selected while partner off</span></div>
-          <div class="team-pair-lookup-results" id="teamPairLookupResults"><div class="calendar-loading">Schedule comparison will appear here.</div></div>
-        </section>
-
-        <section class="panel calendar-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">SUPERSTAR PAIRINGS</p><h2>Elite players with complementary calendars</h2></div>
-            <span class="status-badge">Stars ranked by FDA FP/G</span>
-          </div>
-          <p class="calendar-explainer">These are not simply the two highest-scoring players. FDA first ranks team-calendar fit, then attaches the highest-rated current player from each team.</p>
-          <div class="star-pair-grid" id="starPairGrid"><div class="calendar-loading">Player and schedule data are required.</div></div>
-        </section>
-
-        <section class="panel calendar-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">GOALIE TANDEMS</p><h2>Reduce same-night start decisions</h2></div>
-            <span class="status-badge">Team-game overlap lens</span>
-          </div>
-          <p class="calendar-explainer">Goalie starts are not guaranteed, but teams that play on different nights give a two-goalie combination more chances to avoid choosing between simultaneous starts.</p>
-          <div class="goalie-pair-grid" id="goaliePairGrid"><div class="calendar-loading">Goalie and schedule data are required.</div></div>
-        </section>
-
-        <section class="panel calendar-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">ALL 496 COMBINATIONS</p><h2>Best and worst team pairs</h2></div>
-            <select id="pairSort" class="inline-select">
-              <option value="score">Best overall fit</option>
-              <option value="coverage">Most coverage dates</option>
-              <option value="offnights">Most sparse-night starts</option>
-              <option value="playoffs">Best final-four-week fit</option>
-              <option value="conflicts">Fewest same-night conflicts</option>
-            </select>
-          </div>
-          <div class="pair-table-head"><span>Pair</span><span>Fit</span><span>Coverage</span><span>Conflicts</span><span>Off nights</span><span>Playoffs</span></div>
-          <div class="pair-ranking-list" id="pairRankingList"><div class="calendar-loading">Schedule analysis has not loaded.</div></div>
-          <button class="secondary-button load-more" id="loadMorePairs">Show more combinations</button>
-        </section>
-
-        <div class="calendar-analysis-grid">
-          <section class="panel calendar-section">
-            <div class="section-heading compact"><div><p class="eyebrow">BEST THREE-TEAM CORES</p><h2>Spread stars across the week</h2></div></div>
-            <div class="trio-list" id="trioList"><div class="calendar-loading">The engine will score all 4,960 team trios.</div></div>
+            <div class="calendar-simple-status" id="calendarSource">Loading the official NHL schedule…</div>
+            <div class="calendar-simple-summary" id="teamPairLookupSummary">Choose a team to see its five best schedule partners.</div>
+            <div class="team-pair-lookup-results calendar-simple-results" id="teamPairLookupResults"><div class="calendar-loading">Schedule comparison will appear here.</div></div>
           </section>
-          <section class="panel calendar-section">
-            <div class="section-heading compact"><div><p class="eyebrow">TEAM SCHEDULE PROFILES</p><h2>Who owns the off nights?</h2></div></div>
-            <div class="team-profile-list" id="teamScheduleProfiles"><div class="calendar-loading">Team profiles will appear after schedule import.</div></div>
+
+          <section class="panel calendar-goalie-workbench">
+            <div class="simple-section-heading">
+              <div><p class="eyebrow">YOUR KEEPER GOALIES</p><h2>Select one goalie, then generate five partner options</h2></div>
+              <button class="primary-button" id="generateGoalieOptions" type="button">Generate top 5</button>
+            </div>
+            <div class="keeper-goalie-slots" id="keeperGoalieSlots"><div class="calendar-loading">Keeper goalies will appear after player data loads.</div></div>
+            <div class="calendar-simple-summary" id="goalieOptionSummary">Select Askarov or Blackwood, then generate recommendations.</div>
+            <div class="goalie-option-results" id="goalieOptionResults"></div>
+          </section>
+
+          <section class="panel calendar-section calendar-board-section">
+            <div class="section-heading">
+              <div><p class="eyebrow">MONDAY-SUNDAY VIEW</p><h2 id="calendarBoardTitle">Selected-pair calendar</h2></div>
+              <div class="calendar-board-controls"><button id="calendarPrevWeek" class="icon-button" type="button">‹</button><span id="calendarWeekLabel">-</span><button id="calendarNextWeek" class="icon-button" type="button">›</button></div>
+            </div>
+            <div class="weekly-calendar" id="weeklyCalendar"><div class="calendar-loading">Select a team pairing or goalie option to inspect its week-by-week fit.</div></div>
           </section>
         </div>
-
-        <section class="panel calendar-section roster-fit-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">YOUR ROSTER FIT</p><h2>Which team adds the most usable starts?</h2></div>
-            <label class="compact-control">Target position
-              <select id="rosterFitPosition"><option value="F">Forward</option><option value="D">Defence</option><option value="G">Goalie</option></select>
-            </label>
-          </div>
-          <p class="calendar-explainer">FDA checks every date against your nightly limits of 6 forwards, 4 defence and 2 goalies. A start counts as usable only when that position is not already full.</p>
-          <div class="roster-fit-summary" id="rosterFitSummary">Add players in the Draft Room to make this analysis roster-aware.</div>
-          <div class="roster-fit-list" id="rosterFitList"></div>
-        </section>
-
-        <section class="panel calendar-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">YOUR FORWARDS · PLAYER BY PLAYER</p><h2>Best calendar partners, then low- and high-cap targets</h2></div>
-            <span class="status-badge">Roster-aware value fit</span>
-          </div>
-          <p class="calendar-explainer">Every active forward is listed separately. FDA ranks the three NHL teams that play most often while that forward's club is off, then selects a low-cap and high-cap available forward from each partner team.</p>
-          <div class="value-fit-formula"><strong>Value Fit v1</strong><span>50% predicted/actual FP/G · 30% FP/G per $1M · 20% calendar complement. P / $ / C on each recommendation shows the three component scores.</span></div>
-          <div class="keeper-partner-grid forward-partner-grid" id="keeperPartnerGrid"><div class="calendar-loading">Roster-forward partner matches will appear after the schedule loads.</div></div>
-        </section>
-
-        <section class="panel calendar-section team-generator-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">REST-OF-ROSTER GENERATOR</p><h2>Which teams should fill every open slot?</h2></div>
-            <button class="primary-button" id="generateTeamPlans">Generate team plans</button>
-          </div>
-          <p class="calendar-explainer" id="teamPlanExplainer">FDA fills every remaining roster slot, then re-runs every night of the season. The result is a schedule-first team shopping list—not a claim that the example player is automatically the best value.</p>
-          <div class="team-plan-results" id="teamPlanResults"><div class="calendar-loading">Generate plans after the official schedule loads.</div></div>
-        </section>
-
-        <section class="panel calendar-section calendar-board-section">
-          <div class="section-heading">
-            <div><p class="eyebrow">MONDAY-SUNDAY VIEW</p><h2 id="calendarBoardTitle">Selected-pair calendar</h2></div>
-            <div class="calendar-board-controls"><button id="calendarPrevWeek" class="icon-button">‹</button><span id="calendarWeekLabel">-</span><button id="calendarNextWeek" class="icon-button">›</button></div>
-          </div>
-          <div class="weekly-calendar" id="weeklyCalendar"><div class="calendar-loading">Choose a pair to inspect its week-by-week fit.</div></div>
-        </section>
       </section>
 
       <section class="page" id="page-draft">
