@@ -1,0 +1,694 @@
+{
+  "capturedAt": "2026-11-08T03:35:03.347759+00:00",
+  "sources": [
+    {
+      "playerId": 8476927,
+      "name": "Teddy Blueger",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476927.png",
+        "file": "/art/players/8476927-portrait.png",
+        "bytes": 92447,
+        "sha256": "d79c513eb2a98410bacc54ef8c0fa55bd175be6c508e297c0082385f3197574e",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:33:52.799735+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476927.png",
+        "file": "/art/players/8476927-portrait.png",
+        "bytes": 92447,
+        "sha256": "d79c513eb2a98410bacc54ef8c0fa55bd175be6c508e297c0082385f3197574e",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:33:52.799735+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8484158,
+      "name": "Easton Cowan",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8484158.jpg",
+        "file": "/art/players/8484158-action.jpg",
+        "bytes": 460198,
+        "sha256": "f027b94be29deb686c591c008ed0131cb02a5fe126c6d6d1e12e4ade10321b7a",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:33:46.700575+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8484158.png",
+        "file": "/art/players/8484158-portrait.png",
+        "bytes": 94223,
+        "sha256": "2a0d64f65d9f88d0f907e13a5680f5c962e73880c81c8be46a708fe34c829aa8",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:33:52.799511+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8479520,
+      "name": "Brandon Duhaime",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479520.png",
+        "file": "/art/players/8479520-portrait.png",
+        "bytes": 97565,
+        "sha256": "d3070fa0dbc37767c0236634da5d4d0f7f0d97ffe521b5ab3d926268cf428ecb",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:33:52.847652+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479520.png",
+        "file": "/art/players/8479520-portrait.png",
+        "bytes": 97565,
+        "sha256": "d3070fa0dbc37767c0236634da5d4d0f7f0d97ffe521b5ab3d926268cf428ecb",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:33:52.847652+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8478057,
+      "name": "Dakota Joshua",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8478057.jpg",
+        "file": "/art/players/8478057-action.jpg",
+        "bytes": 598343,
+        "sha256": "6f19fb860513c26de40cfab90358712fe737f0f11ddb41e61e957e4e135aa0bc",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:33:59.724755+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8478057.png",
+        "file": "/art/players/8478057-portrait.png",
+        "bytes": 96689,
+        "sha256": "8f85bde3c6c58de6ab89daedd5eae96194db90d065ce6a0d034a1f53330d2472",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:02.926890+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8479772,
+      "name": "Zack MacEwen",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479772.png",
+        "file": "/art/players/8479772-portrait.png",
+        "bytes": 124303,
+        "sha256": "b272ea512f0c13caf85f9c63c18c4d5d1229f5517feb7172e566968a9feb31ef",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:02.871046+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479772.png",
+        "file": "/art/players/8479772-portrait.png",
+        "bytes": 124303,
+        "sha256": "b272ea512f0c13caf85f9c63c18c4d5d1229f5517feb7172e566968a9feb31ef",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:02.871046+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8479318,
+      "name": "Auston Matthews",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8479318.jpg",
+        "file": "/art/players/8479318-action.jpg",
+        "bytes": 174631,
+        "sha256": "8f91559bcfedf1b96eaa4a273c03b8ffd5357b3bc749dbabb5e0c40bfa706a04",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:09.599805+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479318.png",
+        "file": "/art/players/8479318-portrait.png",
+        "bytes": 96613,
+        "sha256": "37b87e62b2481edcf3d27abeeddb52f31c4156179f4832ba66c66d73c3c76e62",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:12.858578+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8486067,
+      "name": "Gavin McKenna",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8486067.jpg",
+        "file": "/art/players/8486067-action.jpg",
+        "bytes": 641465,
+        "sha256": "0bd33c128d89cd860244722a40f197cf5da84b3e27f062b2343b7417c80cdcf7",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:09.552474+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8486067.png",
+        "file": "/art/players/8486067-portrait.png",
+        "bytes": 95615,
+        "sha256": "9d6ca3f60154b614c795f8d7aa74f294c892d4a6282da794d9cf916e939e3ec1",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:12.850439+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8477939,
+      "name": "William Nylander",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8477939.jpg",
+        "file": "/art/players/8477939-action.jpg",
+        "bytes": 285560,
+        "sha256": "e68a8bf1e739b4501912db4bf2f8a9b7706a78cee4eb3c3adb7a1d1eb3ddd6b4",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:09.651645+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8477939.png",
+        "file": "/art/players/8477939-portrait.png",
+        "bytes": 102390,
+        "sha256": "70cfc937d1678b8b777e82ce9ade9a99509c48e06780d68b4c7cf3f05fe25e93",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:12.879294+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8477426,
+      "name": "Nick Paul",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8477426.png",
+        "file": "/art/players/8477426-portrait.png",
+        "bytes": 99965,
+        "sha256": "84ad792b543811b0f0bf081967f90a9ea7727b976a475cc2c027056e91461f5b",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:12.843248+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8477426.png",
+        "file": "/art/players/8477426-portrait.png",
+        "bytes": 99965,
+        "sha256": "84ad792b543811b0f0bf081967f90a9ea7727b976a475cc2c027056e91461f5b",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:12.843248+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8478458,
+      "name": "Jack Roslovic",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8478458.png",
+        "file": "/art/players/8478458-portrait.png",
+        "bytes": 92927,
+        "sha256": "4a8a7886030355c91e6853dc32c25262d3daea6de175da42c52bae326890df2c",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:22.862663+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8478458.png",
+        "file": "/art/players/8478458-portrait.png",
+        "bytes": 92927,
+        "sha256": "4a8a7886030355c91e6853dc32c25262d3daea6de175da42c52bae326890df2c",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:22.862663+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8476925,
+      "name": "Colton Sissons",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476925.png",
+        "file": "/art/players/8476925-portrait.png",
+        "bytes": 97308,
+        "sha256": "517e726a3baefaf3e04310f3b127c529bef94ff8a578bc806cb871083edbd3df",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:22.819389+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476925.png",
+        "file": "/art/players/8476925-portrait.png",
+        "bytes": 97308,
+        "sha256": "517e726a3baefaf3e04310f3b127c529bef94ff8a578bc806cb871083edbd3df",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:22.819389+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8475166,
+      "name": "John Tavares",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8475166.jpg",
+        "file": "/art/players/8475166-action.jpg",
+        "bytes": 158205,
+        "sha256": "8b9e884aedaef68a7a5e4ab52a25586183e1c532705785d3bc26b9aaafd9f238",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:19.483766+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8475166.png",
+        "file": "/art/players/8475166-portrait.png",
+        "bytes": 93493,
+        "sha256": "1a9a189a1d60cfba6588f58532410b310cf2c3a690b0eb08b44950378789e4d4",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:22.846740+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8475171,
+      "name": "Oliver Ekman-Larsson",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8475171.jpg",
+        "file": "/art/players/8475171-action.jpg",
+        "bytes": 139431,
+        "sha256": "03a604f9f58360f315f39af35b8b42e416b2f6bfaf707a12cee7d1fef03674b4",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:29.342870+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8475171.png",
+        "file": "/art/players/8475171-portrait.png",
+        "bytes": 92537,
+        "sha256": "d2e5c0d00dfc0dea3ebb9de90ec7782b2a49b8703167d9c2f2895e52ee7d4dd5",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:32.651526+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8476931,
+      "name": "Jake McCabe",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8476931.jpg",
+        "file": "/art/players/8476931-action.jpg",
+        "bytes": 266795,
+        "sha256": "7c746f6b397c238416a7fd0e536d36cf7b84b6e2706ed63fbb021a42001d0cb1",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:29.370130+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476931.png",
+        "file": "/art/players/8476931-portrait.png",
+        "bytes": 97152,
+        "sha256": "e4f991fd1d2ffc4bdae0fdf108bfa35f8fab8b79d3352c9b9ed1a11360173f72",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:32.658611+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8478178,
+      "name": "Darren Raddysh",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8478178.png",
+        "file": "/art/players/8478178-portrait.png",
+        "bytes": 94878,
+        "sha256": "31b6d07755aa4e9d5d5e06e7d72442d14d2f674a15e964dd8d1744d7e457d0bc",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:42.656317+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8478178.png",
+        "file": "/art/players/8478178-portrait.png",
+        "bytes": 94878,
+        "sha256": "31b6d07755aa4e9d5d5e06e7d72442d14d2f674a15e964dd8d1744d7e457d0bc",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:42.656317+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8476853,
+      "name": "Morgan Rielly",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8476853.jpg",
+        "file": "/art/players/8476853-action.jpg",
+        "bytes": 313994,
+        "sha256": "727ab017ef3fdf1cccd527e70778f8e77c83316ce75ba8930b6527e4efc84e61",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:39.363739+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476853.png",
+        "file": "/art/players/8476853-portrait.png",
+        "bytes": 102811,
+        "sha256": "5dd0137490b1919ba67eff2392d8528a169dc50f7f642e5c0f20c459446e650e",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:42.654633+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8479442,
+      "name": "Troy Stecher",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8479442.jpg",
+        "file": "/art/players/8479442-action.jpg",
+        "bytes": 526711,
+        "sha256": "aeecf7f33b342355a8a4d810f2af5c83838bc5f4b486ed1ab3b09d7d3c14cf09",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:50.356605+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8479442.png",
+        "file": "/art/players/8479442-portrait.png",
+        "bytes": 91335,
+        "sha256": "119ea0e6711a7daa06bebf49956c8b50f30f32c279a53d3598149b0b5f467ffe",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:53.729133+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8475690,
+      "name": "Chris Tanev",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8475690.jpg",
+        "file": "/art/players/8475690-action.jpg",
+        "bytes": 465770,
+        "sha256": "e875149a5cec4f2b1dc2badb015abe62986c642307a31dc82c65823cd59d46e8",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:34:50.256991+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8475690.png",
+        "file": "/art/players/8475690-portrait.png",
+        "bytes": 107674,
+        "sha256": "e748bf278167aaf1c15e56bb47f29672f57988576156955990851d5001be418d",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:53.723956+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    },
+    {
+      "playerId": 8475683,
+      "name": "Sergei Bobrovsky",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8475683.png",
+        "file": "/art/players/8475683-portrait.png",
+        "bytes": 92519,
+        "sha256": "d9c4046339345f0517cf224fde3285592563ad797e8b43151e9a7991c1ef2ab7",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:53.748196+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8475683.png",
+        "file": "/art/players/8475683-portrait.png",
+        "bytes": 92519,
+        "sha256": "d9c4046339345f0517cf224fde3285592563ad797e8b43151e9a7991c1ef2ab7",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:34:53.748196+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": false
+    },
+    {
+      "playerId": 8476932,
+      "name": "Anthony Stolarz",
+      "front": {
+        "url": "https://assets.nhle.com/mugs/actionshots/1296x729/8476932.jpg",
+        "file": "/art/players/8476932-action.jpg",
+        "bytes": 195642,
+        "sha256": "4cadb9a968d1345fabd7629b3adfadf4ca1710af533d451eb63288ca76aa1ac0",
+        "contentType": "image/jpeg",
+        "downloadedAt": "2026-11-08T03:35:00.345269+00:00",
+        "dimensions": [
+          1296,
+          729
+        ],
+        "isGenericArena": false,
+        "usableAsPlayerPhoto": true,
+        "visualAudit": "individual player in Toronto uniform; visually checked",
+        "preferHeadshot": false
+      },
+      "back": {
+        "url": "https://assets.nhle.com/mugs/nhl/20262027/TOR/8476932.png",
+        "file": "/art/players/8476932-portrait.png",
+        "bytes": 93747,
+        "sha256": "be94157beed4bf488db65a72fbc7f63edc50c2d1aded94e664ee9d8eeaae61be",
+        "contentType": "image/png",
+        "downloadedAt": "2026-11-08T03:35:03.346787+00:00",
+        "dimensions": [
+          336,
+          336
+        ],
+        "visualAudit": "individual official portrait in Toronto blue uniform; visually checked",
+        "usableForTorontoEdition": true
+      },
+      "distinctPhotos": true
+    }
+  ],
+  "teamLogo": {
+    "url": "https://assets.nhle.com/logos/nhl/svg/TOR_light.svg",
+    "file": "/art/toronto-logo-v1.svg",
+    "sha256": "e8b95e832feac68796de8f3535bae6584663829a71d3f9554371cde49afb0d52"
+  }
+}

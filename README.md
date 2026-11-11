@@ -1,186 +1,48 @@
-# Fantrax Draft Assister v13
+# The Original Set
 
-## Player Lab and bio-card rebuild
+A complete React hockey website with a vintage Toronto card collection, live NHL game centre, and league-wide team, player and goalie leaderboards.
 
-The Player Lab now replaces the seven-day market chart with the player's last seven NHL regular seasons. Each row includes the useful position-specific totals plus fantasy points and FP/G recalculated from the scoring settings currently saved in FDA. Missing historical event-only bonuses are labelled as unavailable rather than guessed.
+## Deploy with GitHub and Vercel
 
-NHL EDGE is presented as selectable performance-category cards. Every supported card shows:
+1. Extract this ZIP. Upload its **contents** to the root of a GitHub repository. `package.json`, `vercel.json`, `api`, `src` and `public` should be at the repository root. Upload the extracted files, not the ZIP itself.
+2. In Vercel, import that repository. Choose **Vite** and leave Root Directory at the repository root.
+3. Build command: **`npm run build`**. Output directory: **`dist`**. Node.js: **22.x**. Vercel installs dependencies from the included lockfile.
+4. Deploy. **No API keys or environment variables are required.** The single included Vercel function supplies same-origin NHL data. GitHub Pages or opening `index.html` directly cannot run that function.
 
-- the player's rank among the same position, with `~` marking percentile-derived estimates;
-- a green upward arrow, red downward arrow or blue maintaining line plus the number of consecutive weeks in that direction;
-- the current value and NHL league-average value when returned by EDGE;
-- a selectable top-five same-position leaderboard for that category.
+The project fits within one 100-file browser upload batch. Do not upload `node_modules` or a local `dist` folder.
 
-Selecting a top-five player opens the reusable seven-season player bio card. The same bio card is available from BIO buttons in the Draft Room player market and five-player slot recommendations. It includes current FP/G, salary and personal prediction when the player is loaded in the active FDA database, plus a direct button to the full Player Lab.
+## Local development
 
-## Focused Calendar Fit
-
-Calendar Fit now contains only three working areas:
-
-1. Select any NHL team and view its five best schedule partners, including different-night games and same-night dates.
-2. Select keeper goalie Yaroslav Askarov or Mackenzie Blackwood and generate five available signed goalie partners. The goalie list ranks teams that play most often while the selected keeper's team is off, then breaks ties using fewer same-night conflicts and player FP/G.
-3. Select any team or goalie result to inspect that exact pairing in the preserved Monday-Sunday calendar.
-
-The rest of the roster lab, full static salary master, prediction editor, historical pages, and draft tools remain unchanged.
-
-# FDA - Fantrax Draft Assist
-
-FDA is Nick's private, mobile-first NHL fantasy draft assistant. It combines official NHL data with the league's saved Fantrax scoring rules, a fixed keeper core and nightly lineup limits of 6 forwards, 4 defencemen and 2 goalies.
-
-## Version 6 additions
-
-### Personal keeper roster
-
-The Draft Room starts with ten locked keepers:
-
-- Matvei Michkov, Leo Carlsson, Adam Fantilli and Michael Misa at forward;
-- Sam Dickinson, Noah Dobson, Quinn Hughes and Charlie McAvoy on defence;
-- Yaroslav Askarov and Mackenzie Blackwood in goal.
-
-James Hagens and Ilya Protas are displayed separately as protected minors and do not count against the 23-player active roster. **Restore keeper roster** removes later draft additions without removing the locked core.
-
-### Full-lineup Calendar Fit generator
-
-Calendar Fit no longer examines only one hypothetical player in isolation. It now:
-
-- simulates every date in the selected schedule window;
-- dresses the highest-FPG available players each night within the 6F/4D/2G limits;
-- counts usable starts, unavoidable bench games and sparse-night starts;
-- ranks the best next NHL team for a forward, defenceman or goalie;
-- shows the three best opposite-night partner teams for every NHL team represented by the keepers;
-- fills every remaining roster slot and returns three complete team-shopping plans: maximum starts, off-night bench depth and playoff finish;
-- updates the remaining-position counts automatically as draft additions are saved.
-
-The player names in generated plans are examples used to model lineup priority. The primary output is the recommended mix of NHL teams.
-
-### Season-by-season fantasy leaderboards
-
-The Historical page now includes **Fantasy FPG** leaderboards for seasons from 2007-08 through 2025-26. Each selected season is recalculated with the scoring values currently saved in FDA.
-
-Two coverage modes are shown clearly:
-
-- **Exact FPG** uses Gamecenter event synchronization and includes first-star, fight, shootout, hat-trick and Gordie Howe events.
-- **Tracked FPG** uses every category available in official NHL season reports. Event-only categories that are unavailable are marked unavailable instead of silently treated as zero.
-
-Skaters require at least 10 games and goalies at least 5 games to appear in the FPG ranking.
-
-## Existing historical archive
-
-The Historical page also includes:
-
-- all-time career points, goals, assists and games-played leaders;
-- the highest-scoring, highest-goal and highest-assist single seasons;
-- career goalie wins and shutouts plus the winningest goalie seasons;
-- career and single-season scoring leaders among defencemen;
-- selectable career profiles with season-by-season regular-season totals;
-- explicit data-coverage notes so unavailable old-era statistics are never treated as zero.
-
-All-time history loads through the same-origin Vercel route at `/api/historical`.
-
-## Calendar data requirements
-
-The page never ranks a partial schedule. It requires at least 1,200 unique official regular-season games and schedules for at least 30 teams before displaying results. The 2026-27 schedule cache is generated by the included GitHub Action.
-
-## Data sources
-
-- Official NHL current rosters and season reports
-- Official NHL historical career and single-season reports
-- Official NHL Gamecenter game data
-- Official NHL club schedule-season endpoints
-- Official NHL EDGE tracking data on demand
-- NHL player headshots and team marks
-
-Fantasy points are calculated from raw categories using the saved league scoring rules. Fantrax fantasy totals are not copied into the database.
-
-## Deploy to Vercel
-
-1. Upload the contents of this folder to the root of the `FDA` GitHub repository.
-2. Import the repository into Vercel. No build command is required.
-3. In GitHub, open **Actions -> Sync NHL fantasy data -> Run workflow**.
-4. The normal `20252026` run creates the exact main fantasy database and cached 2026-27 schedule, commits them and triggers a Vercel redeploy.
-
-To make an older Fantasy FPG season exact, manually run the workflow with that season ID. Historical runs are saved under `data/fantasy-history/<season>.json`; they do not overwrite the main current-season player database. Until an exact file exists, FDA automatically uses the clearly labelled Tracked FPG calculation.
-
-## Commands
-
-```bash
-npm run sync:nhl
-npm run validate:fantasy
-npm run sync:calendar
+```sh
+npm ci
+npm run dev
 ```
 
-Environment variables:
+Vite runs the same API handler locally. `npm run build` creates the production assets; `npm run preview` serves them with the API handler. `npm test` runs deterministic data and failure-path tests. `npm run verify:live` checks the actual upstream services.
 
-- `NHL_SEASON` - stats/Gamecenter season, default `20252026`
-- `NHL_SCHEDULE_SEASON` - schedule season, default `20262027`
-- `NHL_SYNC_CONCURRENCY` - Gamecenter synchronization concurrency
+## What is included
 
-## Roster Value Lab (v10)
+- An arena-themed homepage, team directory, and 20 curated Toronto cards with separate front/back artwork and editable data layers. Cards flip with touch, mouse, Space or Enter; the enlarged player file shows the full career ledger.
+- Toronto forward lines, defence pairings, goalies, power-play and penalty-kill units with source and update time. All automatically sourced assignments are explicitly **projected**.
+- All available current-season NHL team, skater and goalie statistics, immediate sorting, search, filters, pagination and goalie minimum-game qualifiers.
+- Date-selectable scores, live polling, manual refresh, individual game scoreboards, goalie information, team comparisons, scoring and penalty logs.
+- Responsive layouts, keyboard controls, reduced-motion support and self-hosted fonts. A manifest is included as a starting point for future app support; offline operation and a native app are not included.
 
-### Roster-forward Calendar Fit
+## Editing the project
 
-Calendar Fit is now driven by the active roster rather than a generic team list. Every active forward receives a separate card containing:
+| Area | Main location |
+| --- | --- |
+| Card layout, both sides | `src/components/Card.jsx`, `src/styles/card.css` |
+| Permanent card identities and frozen images | `data/collection.json`, `public/art/` |
+| Colours, fonts and motion | `src/styles/theme.css`, `fonts.css`, `pages.css` |
+| Available statistics and sort direction | `shared/stat-columns.mjs` |
+| API communication and caching | `server/http.mjs`, `server/nhl.mjs` |
+| Lineup adapters and validation | `server/lineups.mjs` |
+| Manual / saved lineup | `data/toronto-lineup.json` |
+| Dated player fallback | `data/toronto-players.json` |
 
-- the three NHL teams that play most often while that forward's club is off;
-- opposite-night games, same-night conflicts and sparse-night games for each partner team;
-- the best available **low-cap forward at $3,000,000 or less** from that team;
-- the best available **high-cap forward above $3,000,000** from that team;
-- an Add button that obeys the 12F / 8D / 3G construction rules and cap reserve requirement.
+See `MAINTENANCE.md` for manual lineup instructions, card identity rules and source limitations. `TESTING.md` records what was checked.
 
-The first transparent **Value Fit v1** score is:
+## Important limits
 
-- 50% predicted FP/G, or current FP/G when no personal prediction exists;
-- 30% predicted/current FP/G per $1 million of cap hit;
-- 20% calendar complement with the roster forward.
-
-Each result displays its Production / Dollar / Calendar component scores so the formula can be adjusted later without hiding how the recommendation was produced. Draft additions and removals automatically rebuild these forward cards.
-
-### Physical salary reference
-
-The site automatically reads the complete static 2026–27 salary master from `data/SALARY_CAP_SPACE.json`. No browser import is required. The package includes:
-
-- `data/SALARY_CAP_SPACE.json` — website source with 2,197 records
-- `data/SALARY_CAP_SPACE.csv` — flat export
-- `data/SALARY_CAP_MASTER_2026-27.xlsx` — physical workbook
-- `data/SALARY_CAP_MASTER_2026-27.csv` — human-readable master CSV
-- `data/SALARY_CAP_SPACE_ZERO_LIST.csv` — 772 unsigned/$0 records
-- `data/VALIDATION.txt` — master validation summary
-
-Validation confirms 32 NHL teams, 2,197 total records, 1,425 signed contracts and 772 unsigned/$0 records. A `$0` salary remains unsigned and can never be drafted as a free player. Matching uses exact team + normalized name + position first, then the unique normalized name + position record when an NHL stats feed still carries a player's previous team.
-
-### Salary corrections and personal predictions
-
-The Draft Room includes a player editor that can:
-
-- search any player currently loaded in FDA;
-- override that player's 2026-27 salary locally;
-- add or change Nick's predicted FP/G;
-- clear the selected player's local edits;
-- download a new `FDA-SALARY-PREDICTION-MASTER-2026-27.json` containing the packaged records plus saved salary and prediction updates.
-
-Salary corrections and predictions persist in the browser. They immediately update cap usage, open-slot budgets, the available-player market, the five-player slot assistant and Calendar Fit.
-
-All 2,197 salary-master records are searchable in the editor. A player without NHL season statistics can still receive a personal FP/G prediction; once a positive prediction is saved, that player becomes available to the draft market and prediction-based sorters.
-
-Both the slot assistant and full player market now support **Highest prediction** and **Best predicted FP/G per $1M** sort modes in addition to actual FP/G, actual value, recent form and salary sorting.
-
-### Roster and cap rules retained
-
-- NHL upper limit: **$104,000,000**
-- Planning minimum: **$850,000**
-- Active roster: **12 forwards, 8 defencemen and 3 goalies**
-- Nightly lineup: **6 forwards, 4 defencemen and 2 goalies**
-- Ten keepers remain locked
-- James Hagens and Ilya Protas remain protected minors outside the active roster and cap
-- All nine open-slot budget configurations remain available and recalculate after every roster move
-
-Validate the packaged salary reference with:
-
-```bash
-npm run validate:salaries
-```
-
-
-## Version 11 — Team Pairing Lookup
-
-Calendar Fit now includes a team selector for checking any player's NHL club. It ranks that team's five best schedule partners by different-night games, then fewest same-night dates. Each result also shows how often the partner plays while the selected team is off and vice versa. Selecting a result opens the existing Monday–Sunday pair calendar.
+The NHL website feeds and Daily Faceoff public page can change or become unavailable. Failures are shown honestly; Toronto has a dated saved fallback, and a manual configuration is supported. Daily Faceoff has no verified public API or service guarantee. Twelve Toronto cards have distinct action and portrait photos; eight intentionally use one verified official portrait on both sides. Other players use an official-headshot player file. No collectible ownership system or trading game is implemented.

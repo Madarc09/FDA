@@ -1,0 +1,226 @@
+{
+  "team": "TOR",
+  "status": "projected",
+  "sourceName": "Daily Faceoff",
+  "sourceUrl": "https://www.dailyfaceoff.com/teams/toronto-maple-leafs/line-combinations",
+  "reporter": "Last Game (2026-11-07)",
+  "reporterUrl": "https://www.nhl.com/gamecenter/mtl-vs-tor/2026/11/07/2026020268",
+  "sourceUpdatedAt": "2026-11-08T16:11:53.670Z",
+  "groups": {
+    "f1": [
+      {
+        "id": 8484158,
+        "name": "Easton Cowan",
+        "slot": "lw"
+      },
+      {
+        "id": 8479318,
+        "name": "Auston Matthews",
+        "slot": "c"
+      },
+      {
+        "id": 8478458,
+        "name": "Jack Roslovic",
+        "slot": "rw"
+      }
+    ],
+    "f2": [
+      {
+        "id": 8475166,
+        "name": "John Tavares",
+        "slot": "lw"
+      },
+      {
+        "id": 8477426,
+        "name": "Nick Paul",
+        "slot": "c"
+      },
+      {
+        "id": 8477939,
+        "name": "William Nylander",
+        "slot": "rw"
+      }
+    ],
+    "f3": [
+      {
+        "id": 8478057,
+        "name": "Dakota Joshua",
+        "slot": "lw"
+      },
+      {
+        "id": 8476925,
+        "name": "Colton Sissons",
+        "slot": "c"
+      },
+      {
+        "id": 8486067,
+        "name": "Gavin McKenna",
+        "slot": "rw"
+      }
+    ],
+    "f4": [
+      {
+        "id": 8479520,
+        "name": "Brandon Duhaime",
+        "slot": "lw"
+      },
+      {
+        "id": 8476927,
+        "name": "Teddy Blueger",
+        "slot": "c"
+      },
+      {
+        "id": 8479772,
+        "name": "Zack MacEwen",
+        "slot": "rw"
+      }
+    ],
+    "d1": [
+      {
+        "id": 8476931,
+        "name": "Jake McCabe",
+        "slot": "ld"
+      },
+      {
+        "id": 8478178,
+        "name": "Darren Raddysh",
+        "slot": "rd"
+      }
+    ],
+    "d2": [
+      {
+        "id": 8476853,
+        "name": "Morgan Rielly",
+        "slot": "ld"
+      },
+      {
+        "id": 8475690,
+        "name": "Chris Tanev",
+        "slot": "rd"
+      }
+    ],
+    "d3": [
+      {
+        "id": 8475171,
+        "name": "Oliver Ekman-Larsson",
+        "slot": "ld"
+      },
+      {
+        "id": 8479442,
+        "name": "Troy Stecher",
+        "slot": "rd"
+      }
+    ],
+    "g": [
+      {
+        "id": 8476932,
+        "name": "Anthony Stolarz",
+        "slot": "g1"
+      },
+      {
+        "id": 8475683,
+        "name": "Sergei Bobrovsky",
+        "slot": "g2"
+      }
+    ],
+    "pp1": [
+      {
+        "id": 8475166,
+        "name": "John Tavares",
+        "slot": "sk1"
+      },
+      {
+        "id": 8477939,
+        "name": "William Nylander",
+        "slot": "sk2"
+      },
+      {
+        "id": 8478458,
+        "name": "Jack Roslovic",
+        "slot": "sk3"
+      },
+      {
+        "id": 8478178,
+        "name": "Darren Raddysh",
+        "slot": "sk4"
+      },
+      {
+        "id": 8479318,
+        "name": "Auston Matthews",
+        "slot": "sk5"
+      }
+    ],
+    "pp2": [
+      {
+        "id": 8484158,
+        "name": "Easton Cowan",
+        "slot": "sk1"
+      },
+      {
+        "id": 8477426,
+        "name": "Nick Paul",
+        "slot": "sk2"
+      },
+      {
+        "id": 8486067,
+        "name": "Gavin McKenna",
+        "slot": "sk3"
+      },
+      {
+        "id": 8475171,
+        "name": "Oliver Ekman-Larsson",
+        "slot": "sk4"
+      },
+      {
+        "id": 8476853,
+        "name": "Morgan Rielly",
+        "slot": "sk5"
+      }
+    ],
+    "pk1": [
+      {
+        "id": 8476927,
+        "name": "Teddy Blueger",
+        "slot": "sk1"
+      },
+      {
+        "id": 8476925,
+        "name": "Colton Sissons",
+        "slot": "sk2"
+      },
+      {
+        "id": 8476931,
+        "name": "Jake McCabe",
+        "slot": "sk3"
+      },
+      {
+        "id": 8475690,
+        "name": "Chris Tanev",
+        "slot": "sk4"
+      }
+    ],
+    "pk2": [
+      {
+        "id": 8477939,
+        "name": "William Nylander",
+        "slot": "sk1"
+      },
+      {
+        "id": 8484158,
+        "name": "Easton Cowan",
+        "slot": "sk2"
+      },
+      {
+        "id": 8475171,
+        "name": "Oliver Ekman-Larsson",
+        "slot": "sk3"
+      },
+      {
+        "id": 8479442,
+        "name": "Troy Stecher",
+        "slot": "sk4"
+      }
+    ]
+  },
+  "fetchedAt": "2026-11-08T19:15:16.431Z"
+}
